@@ -47,13 +47,8 @@ def CFL_explicite():
     dt_DeltaU_x = dx**2/(4.*DeltaU)
     dt_DeltaU_y = dy**2/(4.*DeltaU)
 
-    dt_DeltaT_x = dx**2/(4.*DeltaT)
-    dt_DeltaT_y = dy**2/(4.*DeltaT)
-
     dt_cfl = precautionEXP * min(dt_DeltaU_x,
-                                 dt_DeltaU_y,
-                                 dt_DeltaT_x,
-                                 dt_DeltaT_y)
+                                 dt_DeltaU_y)
     return dt_cfl
 
 
@@ -66,7 +61,7 @@ def Advect():
     travaille bien sur le domaine reel [1:-1,1:-1]
 
     """ 
-    global Resu, Resv, Tadv 
+    global Resu, Resv 
 
     # Matrice avec des 1 quand on va a droite, 
     # 0 a gauche ou au centre
@@ -110,18 +105,6 @@ def Advect():
                               My2 * v[:-2, 1:-1]) +   
                        Cmy * (Mx1 * v[1:-1, 2:] +
                               Mx2 * v[1:-1, :-2]))
-    # advection temperature
-    Tadv[1:-1,1:-1] = (Cc * T[1:-1, 1:-1] +            
-                       Ce * (Mx1*My1 * T[2:, 2:] + 
-                             Mx1*My2 * T[:-2, 2:] +
-                             Mx2*My1 * T[2:, :-2] +
-                             Mx2*My2 * T[:-2, :-2]) +  
-                       Cmx * (My1 * T[2:, 1:-1] +
-                              My2 * T[:-2, 1:-1]) +   
-                       Cmy * (Mx1 * T[1:-1, 2:] +
-                              Mx2 * T[1:-1, :-2]))    
-
-
 
 def BuildLaPoisson():
     """
@@ -267,44 +250,18 @@ def grad():
        
 ###
 def VelocityGhostPoints(u,v):
-    # NO SLIP BC
     ### left
-    u[:,  0] = -u[:,  2] 
-    v[:,  0] = -v[:,  2] 
+    u[:,  0] = 0.0
+    v[:,  0] = v0
     ### right      
-    u[:, -1] = -u[:, -3] 
-    v[:, -1] = -v[:, -3] 
+    u[:, -1] = u[:, -2] 
+    v[:, -1] = v[:, -2] 
     ### bottom     
     u[0,  :] = -u[2,  :] 
     v[0,  :] = -v[2,  :] 
     ### top      
     u[-1, :] = -u[-3, :] 
     v[-1, :] = -v[-3, :] 
-
-
-def TemperatureGhostPoints(T):
-    """
-    global ==> pas de return 
-
-    """
-    if VerticalHeatFlux:
-        ### left               
-        T[:,  0] = T[:,  2]
-        ### right              
-        T[:, -1] = T[:, -3]
-        ### bottom   
-        T[0,  :] = T[2,  :]
-        ### top                
-        T[-1, :] = T[-3, :]
-    else:
-        ### left               
-        T[:,  0] =  T[:,  2]
-        ### right              
-        T[:, -1] =  T[:, -3]
-        ### bottom
-        T[0,  :] = -T[2,  :]
-        ### top                
-        T[-1, :] = -T[-3, :]
         
 def PhiGhostPoints(phi):
     """
@@ -314,7 +271,7 @@ def PhiGhostPoints(phi):
     global ==> pas de return 
 
     """
-    ### left               
+    ### left            
     phi[:,  0] = phi[:,  2]
     ### right             
     phi[:, -1] = phi[:, -3]
@@ -344,58 +301,38 @@ LX = LY/aspect_ratio
 NX = int(100)
 NY = int(100)
 
-### Taille du domaine reel
+### Taille du domaine reel (sans les points fantomes)
 nx = NX-2
 ny = NY-2
 
-###### Control parameters
+###### Parametre de controle
 Pr = float(1)
 Ra = float(5e7)
 
-###### Boundary conditions
+###### Conditions au limites
 VerticalHeatFlux = bool(0)
 
-###### LOOPING PARAMETERS
+###### Vitesse en entrée
+v0 = 10
+
+###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
 nitermax = int(10000)
 
 ### Modulo
 modulo = int(50)
 
-###### CONDITIONS INITIALES
-
-### Valeur initiale de la temperature T
-T = np.zeros((NY,NX))
-
-### Perturbation initiale
-Tin  = 0.1
-
-Xposi = NX/4
-Yposi = NY/4
-
-T[Yposi, Xposi-1] =  Tin
-T[Yposi, Xposi+1] = -Tin
-
 ##### Valeurs initiales des vitesses
-u = np.zeros((NY,NX)) 
-v = np.zeros((NY,NX))
+u = np.zeros((NY,NX))
+v = np.zeros((NY,NX))+v0
 
 ####################
-###### COEF FOR ADIM
+###### COEF POUR ADIM
 
 ### Coef du Laplacien de la vitesse
 DeltaU = float(Pr)
 
-### Coef du Laplacien T
-DeltaT = float(1.)
-
-### Coef Archimede
-Buoyancy = float(Ra*Pr)
-
-ForcingT = float(1.)
-
-###### Elements differentiels 
-
+###### Éléments différentiels 
 dx = LX/(nx-1)
 dy = LY/(ny-1)
 
@@ -412,12 +349,11 @@ t = 0. # total time
 ### Tableaux avec points fantomes
 ### Matrices dans lesquelles se trouvent les extrapolations
 Resu = np.zeros((NY,NX))
-Resv = np.zeros((NY,NX))
-Tadv = np.zeros((NY,NX))
+Resv = np.zeros((NY,NX))+v
 
 ### Definition des matrices ustar et vstar
 ustar = np.zeros((NY,NX))
-vstar = np.zeros((NY,NX))
+vstar = np.zeros((NY,NX))+v0
 
 ### Definition de divstar
 divstar = np.zeros((NY,NX))
@@ -428,9 +364,9 @@ gradphix = np.zeros((NY,NX))
 gradphiy = np.zeros((NY,NX))
 
 
-###### CONSTRUCTION des matrices et LU decomposition
+###### CONSTRUCTION des matrices et LU décomposition
 
-### Matrix construction for projection step
+### Construcion matricielle pour l'étape de projection
 LAPoisson = BuildLaPoisson() 
 LUPoisson = ILUdecomposition(LAPoisson)
 
@@ -471,14 +407,13 @@ for niter in xrange(nitermax):
     ###### Etape de diffusion
 
     ustar = Resu + dt*DeltaU*Laplacien(u) 
-    vstar = Resv + dt*DeltaU*Laplacien(v) + dt*Buoyancy*T
-    T     = Tadv + dt*DeltaT*Laplacien(T) + dt*ForcingT*v 
+    vstar = Resv + dt*DeltaU*Laplacien(v) 
 
     ###### Conditions aux limites Vitesse
     ###### on impose sur ustar/vstar Att:ghost points
     ### left
-    ustar[:   1] = 0.0 
-    vstar[:,  1] = 0.0 
+    ustar[:,  1] = 0.0
+    vstar[:,  1] = v0
     ### right
     ustar[:, -2] = 0.0
     vstar[:, -2] = 0.0
@@ -487,15 +422,8 @@ for niter in xrange(nitermax):
     vstar[-2, :] = 0.0 
     ### bottom
     ustar[1,  :] = 0.0
-    vstar[1,  :] = 0.0  
+    vstar[1,  :] = 0.0
         
-    ###### Temperature B.C    
-    if not VerticalHeatFlux: 
-        ### bottom
-        T[1,  :] = 0. 
-        ### top
-        T[-2, :] = 0.
-
     ###### END Conditions aux limites
 
     ###### Etape de projection
@@ -524,11 +452,8 @@ for niter in xrange(nitermax):
     v = vstar - gradphiy
 
     ###### Mise a jour des points fantomes
-    ###### pour le champ de vitesse et T
 
     VelocityGhostPoints(u,v)
-
-    TemperatureGhostPoints(T)
 
     if (niter%modulo==0):
 
@@ -546,8 +471,7 @@ for niter in xrange(nitermax):
         ###### FIGURE draw works only if plt.ion()
         plotlabel = "t = %1.5f" %(t)
         plt.title(plotlabel)
-#        plt.pcolormesh(xx,yy,T[1:-1,1:-1]+Tr[:,np.newaxis])
-        plt.imshow(T[1:-1,1:-1]+Tr[:,np.newaxis],origin='lower')
+        plt.imshow(v[1:-1,1:-1], origin="lower")
         plt.axis('image')
         plt.draw()
 
