@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as lg
-
+import time
 
 ###### affichage graphique
 import matplotlib.pyplot as plt
@@ -131,9 +131,9 @@ def BuildLaPoisson():
     ### Diagonal terms
     dataNXi = [np.ones(NXi), -2*np.ones(NXi), np.ones(NXi)]   
     
-    ### Conditions aux limites : Neumann 
+    ### Conditions aux limites : Neumann à gauche, rien à droite
     dataNXi[2][1]     = 2.  # SF left
-    dataNXi[0][NXi-2] = 2.  # SF right
+#    dataNXi[0][NXi-2] = 2.  # SF right
 
     ###### AXE Y
     ### Diagonal terms
@@ -251,17 +251,17 @@ def grad():
 ###
 def VelocityGhostPoints(u,v):
     ### left
-    u[:,  0] = 0.0
-    v[:,  0] = v0
+    u[:,  0] = u0
+    v[:,  0] = 0
     ### right      
     u[:, -1] = u[:, -2] 
     v[:, -1] = v[:, -2] 
     ### bottom     
     u[0,  :] = -u[2,  :] 
-    v[0,  :] = -v[2,  :] 
+    v[0,  :] = v[2,  :] 
     ### top      
     u[-1, :] = -u[-3, :] 
-    v[-1, :] = -v[-3, :] 
+    v[-1, :] = v[-3, :] 
         
 def PhiGhostPoints(phi):
     """
@@ -274,12 +274,19 @@ def PhiGhostPoints(phi):
     ### left            
     phi[:,  0] = phi[:,  2]
     ### right             
-    phi[:, -1] = phi[:, -3]
+    phi[:, -1] = -phi[:, -3]
     ### bottom   
     phi[0,  :] = phi[2,  :]
     ### top               
     phi[-1, :] = phi[-3, :]
 
+def VelocityObstacle(ustar,vstar):
+    """
+    on impose une vitesse nulle sur le carré
+    """
+    global ObsX1, ObsY1, ObsX2, ObsY2
+    ustar[ObsY1:ObsY2, ObsX1:ObsX2] = 0
+    vstar[ObsY1:ObsY2, ObsX1:ObsX2] = 0
 
 
 #########################################
@@ -298,39 +305,44 @@ LX = LY/aspect_ratio
 
 ### Taille des tableaux (points fantomes inclus)
 
-NX = int(100)
-NY = int(100)
+NX = int(400)
+NY = int(80)
+
+### Position de l'obstacle
+ObsX1 = 15
+ObsY1 = 35
+ObsX2 = ObsX1+10
+ObsY2 = ObsY1+10
 
 ### Taille du domaine reel (sans les points fantomes)
 nx = NX-2
 ny = NY-2
 
 ###### Parametre de controle
-Pr = float(1)
-Ra = float(5e7)
+Re = float(5e10)
 
 ###### Conditions au limites
 VerticalHeatFlux = bool(0)
 
 ###### Vitesse en entrée
-v0 = 10
+u0 = 10
 
 ###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
 nitermax = int(10000)
 
 ### Modulo
-modulo = int(50)
+modulo = int(200)
 
 ##### Valeurs initiales des vitesses
-u = np.zeros((NY,NX))
-v = np.zeros((NY,NX))+v0
+u = np.zeros((NY,NX))+u0
+v = np.zeros((NY,NX))
 
 ####################
 ###### COEF POUR ADIM
 
 ### Coef du Laplacien de la vitesse
-DeltaU = float(Pr)
+DeltaU = float(1/Re)
 
 ###### Éléments différentiels 
 dx = LX/(nx-1)
@@ -349,11 +361,11 @@ t = 0. # total time
 ### Tableaux avec points fantomes
 ### Matrices dans lesquelles se trouvent les extrapolations
 Resu = np.zeros((NY,NX))
-Resv = np.zeros((NY,NX))+v
+Resv = np.zeros((NY,NX))
 
 ### Definition des matrices ustar et vstar
 ustar = np.zeros((NY,NX))
-vstar = np.zeros((NY,NX))+v0
+vstar = np.zeros((NY,NX))
 
 ### Definition de divstar
 divstar = np.zeros((NY,NX))
@@ -389,6 +401,7 @@ Tr = 1 - y
 ###### MAIN LOOP 
 tStart = t
 
+plt.ion()
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
@@ -412,20 +425,22 @@ for niter in xrange(nitermax):
     ###### Conditions aux limites Vitesse
     ###### on impose sur ustar/vstar Att:ghost points
     ### left
-    ustar[:,  1] = 0.0
-    vstar[:,  1] = v0
+    ustar[:,  1] = u0
+    vstar[:,  1] = 0.0
     ### right
-    ustar[:, -2] = 0.0
-    vstar[:, -2] = 0.0
+    ustar[:, -1] = ustar[:, -2]
+    vstar[:, -1] = vstar[:, -2]
     ### top
-    ustar[-2, :] = 0.0
-    vstar[-2, :] = 0.0 
+    ustar[-1, :] = 0.0
+    vstar[-1, :] = vstar[-2, :]
     ### bottom
-    ustar[1,  :] = 0.0
-    vstar[1,  :] = 0.0
+    ustar[0,  :] = 0.0
+    vstar[0,  :] = vstar[1, :]
         
     ###### END Conditions aux limites
-
+    ###### Réctification de ustar et vstar pour avoir une vitesse nulle
+    VelocityObstacle(ustar,vstar)
+    
     ###### Etape de projection
     
     ###### Mise a jour des points fantomes pour 
@@ -471,11 +486,18 @@ for niter in xrange(nitermax):
         ###### FIGURE draw works only if plt.ion()
         plotlabel = "t = %1.5f" %(t)
         plt.title(plotlabel)
-        plt.imshow(v[1:-1,1:-1], origin="lower")
+        #plt.imshow(np.sqrt(u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
+        #plt.imshow(u[1:-1, 1:-1], origin="lower")
+        plt.quiver(u[::5, ::5],v[::5, ::5], units="dots", width=0.1, hold=False)
         plt.axis('image')
         plt.draw()
+        #plt.grid()
+        #plt.plot(vstar[75,:])
+        #plt.plot(Resv[75,:])
+        #plt.plot(u[,:])
+        
 
         ###### Gael's tricks interactif
         if 'qt' in plt.get_backend().lower():
             QtGui.qApp.processEvents()
-        
+plt.ioff()
