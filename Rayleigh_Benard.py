@@ -332,7 +332,7 @@ u0 = 10
 nitermax = int(10000)
 
 ### Modulo
-modulo = int(200)
+modulo = int(50)
 
 ##### Valeurs initiales des vitesses
 u = np.zeros((NY,NX))+u0
@@ -486,9 +486,11 @@ for niter in xrange(nitermax):
         ###### FIGURE draw works only if plt.ion()
         plotlabel = "t = %1.5f" %(t)
         plt.title(plotlabel)
-        #plt.imshow(np.sqrt(u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
+        plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
         #plt.imshow(u[1:-1, 1:-1], origin="lower")
-        plt.quiver(u[::5, ::5],v[::5, ::5], units="dots", width=0.1, hold=False)
+        plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
+                   scale_units="dots", scale=0.9,
+                   hold=False)
         plt.axis('image')
         plt.draw()
         #plt.grid()
