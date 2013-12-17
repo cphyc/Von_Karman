@@ -305,12 +305,12 @@ LX = LY/aspect_ratio
 
 ### Taille des tableaux (points fantomes inclus)
 
-NX = int(400)
-NY = int(80)
+NX = int(300)
+NY = int(100)
 
 ### Position de l'obstacle
 ObsX1 = 15
-ObsY1 = 35
+ObsY1 = 50
 ObsX2 = ObsX1+10
 ObsY2 = ObsY1+10
 
@@ -486,11 +486,11 @@ for niter in xrange(nitermax):
         ###### FIGURE draw works only if plt.ion()
         plotlabel = "t = %1.5f" %(t)
         plt.title(plotlabel)
-        plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
-        #plt.imshow(u[1:-1, 1:-1], origin="lower")
-        plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
-                   scale_units="dots", scale=0.9,
-                   hold=False)
+        #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
+        plt.imshow(u[1:-1, 1:-1], origin="lower")
+        #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
+        #           scale_units="dots", scale=0.9,
+        #hold=False)
         plt.axis('image')
         plt.draw()
         #plt.grid()
