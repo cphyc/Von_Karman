@@ -21,10 +21,14 @@ parser.add_argument('--hash-size', required=False, default=30,
 parser.add_argument('--BFECC', '-b', required=False, action='store_true',
                     help='Use the BFECC method for better simulation',
                     default=False)
-parser.add_argument('--tracer', '-t', required=False, default=10,
-                    dest='tracers', help='Use TRACER tracers')
+parser.add_argument('--tracer', '-t', required=False, type=float, default=10,
+                    dest='tracers', help='Use TRACER tracers, default:10')
 parser.add_argument('--Re', required=False, default=float(1e15),
                     dest='re',help="Reynold's number, default:1e15")
+parser.add_argument('--nx', required=False, type=int, default=300,
+                    help="Grid size in the x direction")
+parser.add_argument('--ny', required=False, type=int, default=100,
+                    help="Grid size in the y direction")
 parser.add_argument('--refresh', '-r',type=int,
                     required=False, default=50,
                     dest='refresh', help="Refresh rate")
@@ -41,7 +45,6 @@ if args.tracers > 0:
     use_tracer=True
 else:
     use_tracer=False
-
 
 # Petite table de hashage pour optimiser
 if args.do_hash:
@@ -370,9 +373,8 @@ LX = LY/aspect_ratio
 ###### GRID RESOLUTION
 
 ### Taille des tableaux (points fantomes inclus)
-
-NX = int(300)
-NY = int(100)
+NX = args.nx
+NY = args.ny
 
 ### Écart entre les traceurs
 DeltaTraceur = NY/args.tracers
@@ -384,8 +386,8 @@ ObsX2 = ObsX1+10
 ObsY2 = ObsY1+10
 
 ### Taille du domaine reel (sans les points fantomes)
-nx = NX-2
-ny = NY-2
+nx = NX - 2
+ny = NY - 2
 
 ###### Parametre de controle
 Re = float(args.re)
@@ -450,17 +452,14 @@ gradphiy = np.zeros((NY,NX))
 LAPoisson = BuildLaPoisson() 
 LUPoisson = ILUdecomposition(LAPoisson)
 
-
 ### Maillage pour affichage (inutile)
 # ne pas compter les points fantomes
 x = np.linspace(0,LX,nx) 
 y = np.linspace(0,LY,ny)
 [xx,yy] = np.meshgrid(x,y) 
 
-
 ###### CFL explicite
 dt_exp = CFL_explicite()
-
 
 ###### Reference state
 Tr = 1 - y
@@ -470,10 +469,10 @@ Tr = 1 - y
 tStart = t
 
 plt.ion()
+
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
-    
     dt_new = min(dt_adv,dt_exp)
     
     if (dt_new < dt):
@@ -482,7 +481,7 @@ for niter in xrange(nitermax):
     ### Avancement du temps total
     t += dt
 
-    ###### Etape d'advection semi-Lagrangienne utilisant la méthode BFECC
+    ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
     def lets_advect(p):
         if args.BFECC :
             return Advect(u, v, p + 1/2*(p - Advect(-u, -v, Advect(u, v, p))))
@@ -493,7 +492,7 @@ for niter in xrange(nitermax):
     Resv = lets_advect(v)
     T = lets_advect(T)
 
-    ###### Etape e diffusion
+    ###### Etape de diffusion
 
     ustar = Resu + dt*DeltaU*Laplacien(u) 
     vstar = Resv + dt*DeltaU*Laplacien(v) 
@@ -520,7 +519,6 @@ for niter in xrange(nitermax):
     
     ###### Mise a jour des points fantomes pour 
     ###### calculer la divergence(ustar,vstar) 
-   
     VelocityGhostPoints(ustar,vstar)
 
     ### Update divstar 
@@ -530,12 +528,10 @@ for niter in xrange(nitermax):
     ### Solving the linear system
     phi[1:-1,1:-1] = ResoLap(LUPoisson, RHS=divstar[1:-1,1:-1])
 
-    ### update Pressure ghost points 
-
+    ### Update tracer ghost points 
     PhiGhostPoints(phi)
 
     ### Update gradphi
-
     grad()
 
     u = ustar - gradphix
