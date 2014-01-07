@@ -498,10 +498,11 @@ for niter in xrange(nitermax):
     def lets_advect(p, BFECC, is_col):
         if BFECC :
             p3 = Advect(u, v, p)
-            if is_col : colGhostPoints(p3)
+            
             p2 = Advect(-u, -v, p3)
-            if is_col : colGhostPoints(p2)
-            return Advect(u, v, p + 1./2*(p - p2))
+            p1 = Advect(u, v, p + 1./2*(p - p2))
+            if is_col : colGhostPoints(p1)
+            return p1
         else :
             return Advect(u, v, p)
     
