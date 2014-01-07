@@ -29,6 +29,12 @@ parser.add_argument('--nx', required=False, type=int, default=300,
                     help="Grid size in the x direction")
 parser.add_argument('--ny', required=False, type=int, default=100,
                     help="Grid size in the y direction")
+parser.add_argument('--ox', required=False, type=int, default=40,
+                    help="Obstacle size in the x direction")
+parser.add_argument('--oy', required=False, type=int, default=40,
+                    help="Obstacle size in the y direction")
+parser.add_argument('--tracer-size', required=False, type=int, default=1,
+                    dest="colWidth", help="Size of the tracer")
 parser.add_argument('--refresh', '-r',type=int,
                     required=False, default=50,
                     dest='refresh', help="Refresh rate")
@@ -82,7 +88,7 @@ def CFL_explicite():
     """
     Condition CFL pour la diffusion 
     en cas de schema explicite
-  
+
     """
     precautionEXP = 0.3
     
@@ -95,7 +101,7 @@ def CFL_explicite():
 
 
 ####
-def Advect(u, v, p):
+def Advect(u, v, col):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
@@ -159,17 +165,17 @@ def Advect(u, v, p):
             hashtbl[h] = [Mx1, Mx2, My1, My2, au, av, Cc, Ce, Cmx, Cmy]
 
     # on copie le tableau d'entrée l dans res
-    res = p.copy()
+    res = col.copy()
     # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i] 
-    res[1:-1,1:-1] = (Cc * p[1:-1, 1:-1] +            
-                      Ce * (Mx1*My1 * p[2:, 2:] + 
-                            Mx1*My2 * p[:-2, 2:] +
-                            Mx2*My1 * p[2:, :-2] +
-                            Mx2*My2 * p[:-2, :-2]) +  
-                      Cmx * (My1 * p[2:, 1:-1] +
-                             My2 * p[:-2, 1:-1]) +   
-                      Cmy * (Mx1 * p[1:-1, 2:] +
-                             Mx2 * p[1:-1, :-2]))
+    res[1:-1,1:-1] = (Cc * col[1:-1, 1:-1] +            
+                      Ce * (Mx1*My1 * col[2:, 2:] + 
+                            Mx1*My2 * col[:-2, 2:] +
+                            Mx2*My1 * col[2:, :-2] +
+                            Mx2*My2 * col[:-2, :-2]) +  
+                      Cmx * (My1 * col[2:, 1:-1] +
+                             My2 * col[:-2, 1:-1]) +   
+                      Cmy * (Mx1 * col[1:-1, 2:] +
+                             Mx2 * col[1:-1, :-2]))
     return res
 
 def BuildLaPoisson():
@@ -328,9 +334,16 @@ def VelocityGhostPoints(u,v):
     ### top      
     u[-1, :] = -u[-3, :] 
     v[-1, :] = v[-3, :] 
-        
+
+def colGhostPoints(col):
+    col[:,  0] = col[:,  1]
+    col[:, -1] = col[:, -2]
+    col[0,  :] = col[1,  :]
+    col[-1, :] = col[-2, :]
+
 def TraceurGhostPoint(T):
-    T[::DeltaTraceur, 1] = 1
+    for i in range(0, args.colWidth):
+        T[i::DeltaTraceur, 5] = 1
 
 def PhiGhostPoints(phi):
     """
@@ -381,9 +394,9 @@ DeltaTraceur = NY/args.tracers
 
 ### Position de l'obstacle
 ObsX1 = 15
-ObsY1 = 50
-ObsX2 = ObsX1+10
-ObsY2 = ObsY1+10
+ObsY1 = (NY-args.oy)/2
+ObsX2 = ObsX1+args.ox
+ObsY2 = ObsY1+args.oy
 
 ### Taille du domaine reel (sans les points fantomes)
 nx = NX - 2
@@ -482,15 +495,20 @@ for niter in xrange(nitermax):
     t += dt
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
-    def lets_advect(p):
-        if args.BFECC :
-            return Advect(u, v, p + 1/2*(p - Advect(-u, -v, Advect(u, v, p))))
+    def lets_advect(p, BFECC, is_col):
+        if BFECC :
+            p3 = Advect(u, v, p)
+            if is_col : colGhostPoints(p3)
+            p2 = Advect(-u, -v, p3)
+            if is_col : colGhostPoints(p2)
+            return Advect(u, v, p + 1./2*(p - p2))
         else :
             return Advect(u, v, p)
     
-    Resu = lets_advect(u)
-    Resv = lets_advect(v)
-    T = lets_advect(T)
+    Resu = lets_advect(u, False, False)
+    Resv = lets_advect(v, False, False)
+    T = lets_advect(T, args.BFECC, True)
+    print np.max(T[:, 1])
 
     ###### Etape de diffusion
 
@@ -523,7 +541,6 @@ for niter in xrange(nitermax):
 
     ### Update divstar 
     divstar = divergence(ustar,vstar)
-
 
     ### Solving the linear system
     phi[1:-1,1:-1] = ResoLap(LUPoisson, RHS=divstar[1:-1,1:-1])
@@ -561,7 +578,7 @@ for niter in xrange(nitermax):
         plt.title(plotlabel)
         #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
         #plt.imshow(u[1:-1, 1:-1], origin="lower")
-        plt.imshow(T[1:-1, 1:-1], origin="lower")
+        plt.imshow(T[1:-1, 1:-1], origin="lower", vmin=0)
         #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
         #           scale_units="dots", scale=0.9,
         #hold=False)
