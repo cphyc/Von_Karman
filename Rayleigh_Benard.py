@@ -1,3 +1,4 @@
+#!/usr/bin/python2
 # -*- coding:utf-8 -*-
 #
 # Convection 2D schema explicite
@@ -8,6 +9,12 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as lg
 import time
+
+# Petite table de hashage pour optimiser
+hashtbl = dict()
+h = 0
+max_hash_size = 30
+tracer = True
 
 ###### affichage graphique
 import matplotlib.pyplot as plt
@@ -53,58 +60,83 @@ def CFL_explicite():
 
 
 ####
-def Advect():
+def Advect(u, v, p, do_hash):
     """
     Calcule la valeur interpolee qui correspond 
-    a l'advection a la vitesse au temps n
+    a l'advection a la vitesse au temps n.
     
     travaille bien sur le domaine reel [1:-1,1:-1]
 
-    """ 
-    global Resu, Resv 
+    Prend en argument u, v (vecteur vitesses), l (liste des quantités à advecter)
+    et réalise l'advection selon l'équation. Rappel : les arguments sont passés par 
+    valeur en python, mais pour les tableaux, c'est la valeur de la référence qui 
+    est passée. Retourne un tableau dans le meme ordre que l'entrée.
 
-    # Matrice avec des 1 quand on va a droite, 
-    # 0 a gauche ou au centre
-    Mx2 = np.sign(np.sign(u[1:-1,1:-1]) + 1.)
-    Mx1 = 1. - Mx2
+    """
+    def check_hash () :
+        """ Retourne un booléen si h est dans la hashtbl """
+        global hashtbl, h
+        h = hash(u.tostring() + v.tostring())
+        if h in hashtbl:
+            return True
+        else:
+            new_hashtbl = dict()
+            try: 
+                i = 0
+                while True:
+                    i+=1
+                    if i > max_hash_size :
+                        raise KeyError
+                    k, val = hashtbl.popitem()
+                    new_hashtbl[k] = val
+            except KeyError:
+                hashtbl = new_hashtbl.copy()
 
-    # Matrice avec des 1 quand on va en haut, 
-    # 0 en bas ou au centre
-    My2 = np.sign(np.sign(v[1:-1,1:-1]) + 1.)
-    My1 = 1. - My2
+    if do_hash and check_hash():
+        # On utilise une table de hashage pour ne pas recalculer tout à chaque fois
+        # c'est un dictionnaire qui associe au hash de u, v les valeurs utiles pour 
+        # l'advection 1/2 lagrangienne
+        Mx1, Mx2, My1, My2, au, av, Cc, Ce, Cmx, Cmy = hashtbl[h]
+    else:
+        # On n'a pas encore calculé, on le fait donc
+        # Matrice avec des 1 quand on va a droite, 
+        # 0 a gauche ou au centre
+        Mx2 = np.sign(np.sign(u[1:-1,1:-1]) + 1.)
+        Mx1 = 1. - Mx2
 
-    # Matrices en valeurs absolues pour u et v
-    au = abs(u[1:-1,1:-1]) * dt/dx 
-    av = abs(v[1:-1,1:-1]) * dt/dy
+        # Matrice avec des 1 quand on va en haut, 
+        # 0 en bas ou au centre
+        My2 = np.sign(np.sign(v[1:-1,1:-1]) + 1.)
+        My1 = 1. - My2
 
-    # Matrices des coefficients respectivement 
-    # central, exterieur, meme x, meme y     
-    Cc = (1. - au) * (1. - av) 
-    Ce = au * av
-    Cmx = (1. - au) * av
-    Cmy = (1. - av) * au
+        # Matrices en valeurs absolues pour u et v
+        au = abs(u[1:-1,1:-1]) * dt/dx 
+        av = abs(v[1:-1,1:-1]) * dt/dy
 
-    # Calcul des matrices de resultat 
-    # pour les vitesses u et v
-    Resu[1:-1,1:-1] = (Cc * u[1:-1, 1:-1] +            
-                       Ce * (Mx1*My1 * u[2:, 2:] + 
-                             Mx1*My2 * u[:-2, 2:] +
-                             Mx2*My1 * u[2:, :-2] +
-                             Mx2*My2 * u[:-2, :-2]) +  
-                       Cmx * (My1 * u[2:, 1:-1] +
-                              My2 * u[:-2, 1:-1]) +   
-                       Cmy * (Mx1 * u[1:-1, 2:] +
-                              Mx2 * u[1:-1, :-2]))
-    
-    Resv[1:-1,1:-1] = (Cc * v[1:-1, 1:-1] +            
-                       Ce * (Mx1*My1 * v[2:, 2:] + 
-                             Mx1*My2 * v[:-2, 2:] +
-                             Mx2*My1 * v[2:, :-2] +
-                             Mx2*My2 * v[:-2, :-2]) +  
-                       Cmx * (My1 * v[2:, 1:-1] +
-                              My2 * v[:-2, 1:-1]) +   
-                       Cmy * (Mx1 * v[1:-1, 2:] +
-                              Mx2 * v[1:-1, :-2]))
+        # Matrices des coefficients respectivement 
+        # central, exterieur, meme x, meme y     
+        Cc = (1. - au) * (1. - av) 
+        Ce = au * av
+        Cmx = (1. - au) * av
+        Cmy = (1. - av) * au
+
+        # On stocke dans la table de hashage
+        if do_hash :
+            hashtbl[h] = [Mx1, Mx2, My1, My2, au, av, Cc, Ce, Cmx, Cmy]
+
+    # on copie le tableau d'entrée l dans res
+    res = p.copy()
+    # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i] 
+    res[1:-1,1:-1] = (Cc * p[1:-1, 1:-1] +            
+                      Ce * (Mx1*My1 * p[2:, 2:] + 
+                            Mx1*My2 * p[:-2, 2:] +
+                            Mx2*My1 * p[2:, :-2] +
+                            Mx2*My2 * p[:-2, :-2]) +  
+                      Cmx * (My1 * p[2:, 1:-1] +
+                             My2 * p[:-2, 1:-1]) +   
+                      Cmy * (Mx1 * p[1:-1, 2:] +
+                             Mx2 * p[1:-1, :-2]))
+    return res
 
 def BuildLaPoisson():
     """
@@ -263,6 +295,9 @@ def VelocityGhostPoints(u,v):
     u[-1, :] = -u[-3, :] 
     v[-1, :] = v[-3, :] 
         
+def TraceurGhostPoint(T):
+    T[::DeltaTraceur, 1] = 1
+
 def PhiGhostPoints(phi):
     """
     copie les points fantomes
@@ -308,6 +343,9 @@ LX = LY/aspect_ratio
 NX = int(300)
 NY = int(100)
 
+### Écart entre les traceurs
+DeltaTraceur = 10
+
 ### Position de l'obstacle
 ObsX1 = 15
 ObsY1 = 50
@@ -319,7 +357,7 @@ nx = NX-2
 ny = NY-2
 
 ###### Parametre de controle
-Re = float(5e10)
+Re = float(1e20)
 
 ###### Conditions au limites
 VerticalHeatFlux = bool(0)
@@ -337,6 +375,8 @@ modulo = int(50)
 ##### Valeurs initiales des vitesses
 u = np.zeros((NY,NX))+u0
 v = np.zeros((NY,NX))
+if tracer:
+    T = np.zeros((NY,NX))
 
 ####################
 ###### COEF POUR ADIM
@@ -414,10 +454,18 @@ for niter in xrange(nitermax):
     ### Avancement du temps total
     t += dt
 
-    ###### Etape d'advection semi-Lagrangienne
-    Advect()
+    ###### Etape d'advection semi-Lagrangienne utilisant la méthode BFECC
+    def lets_advect(p, do_BFECC, h_b):
+        if do_BFECC :
+            return Advect(u, v, p + 1/2*(p - Advect(-u, -v, Advect(u, v, p, h_b), h_b)), h_b)
+        else :
+            return Advect(u, v, p, h_b)
+    
+    Resu = lets_advect(u, True, True)
+    Resv = lets_advect(v, True, True)
+    T = lets_advect(T, True, True)
 
-    ###### Etape de diffusion
+    ###### Etape e diffusion
 
     ustar = Resu + dt*DeltaU*Laplacien(u) 
     vstar = Resv + dt*DeltaU*Laplacien(v) 
@@ -436,11 +484,10 @@ for niter in xrange(nitermax):
     ### bottom
     ustar[0,  :] = 0.0
     vstar[0,  :] = vstar[1, :]
-        
-    ###### END Conditions aux limites
     ###### Réctification de ustar et vstar pour avoir une vitesse nulle
     VelocityObstacle(ustar,vstar)
-    
+    ###### END Conditions aux limites
+
     ###### Etape de projection
     
     ###### Mise a jour des points fantomes pour 
@@ -469,6 +516,8 @@ for niter in xrange(nitermax):
     ###### Mise a jour des points fantomes
 
     VelocityGhostPoints(u,v)
+    if tracer :
+        TraceurGhostPoint(T)
 
     if (niter%modulo==0):
 
@@ -487,7 +536,8 @@ for niter in xrange(nitermax):
         plotlabel = "t = %1.5f" %(t)
         plt.title(plotlabel)
         #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
-        plt.imshow(u[1:-1, 1:-1], origin="lower")
+        #plt.imshow(u[1:-1, 1:-1], origin="lower")
+        plt.imshow(T[1:-1, 1:-1], origin="lower")
         #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
         #           scale_units="dots", scale=0.9,
         #hold=False)
