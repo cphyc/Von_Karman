@@ -9,12 +9,44 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as lg
 import time
+import argparse
+
+parser = argparse.ArgumentParser(description='Von Karman streets.')
+parser.add_argument('--hash', '-H', required=False, action='store_true',
+                    help = 'Use a hash method for speed improvements',
+                    dest='do_hash', default=False)
+parser.add_argument('--hash-size', required=False, default=30, 
+                    dest='max_hash_size',
+                    help='Control the size of the stack for the hash')
+parser.add_argument('--BFECC', '-b', required=False, action='store_true',
+                    help='Use the BFECC method for better simulation',
+                    default=False)
+parser.add_argument('--tracer', '-t', required=False, default=10,
+                    dest='tracers', help='Use TRACER tracers')
+parser.add_argument('--Re', required=False, default=float(1e15),
+                    dest='re',help="Reynold's number, default:1e15")
+parser.add_argument('--refresh', '-r',type=int,
+                    required=False, default=50,
+                    dest='refresh', help="Refresh rate")
+
+args=parser.parse_args()
+if args.do_hash : print 'Using hash algorithm...'
+if args.BFECC : print 'Using BFECC method...'
+else: print 'No BFECC...'
+if args.tracers > 0 : print 'Using', args.tracers, 'tracers...'
+print "Refresh rate :", args.refresh
+print "Reynold's number :", args.re
+
+if args.tracers > 0:
+    use_tracer=True
+else:
+    use_tracer=False
+
 
 # Petite table de hashage pour optimiser
-hashtbl = dict()
-h = 0
-max_hash_size = 30
-tracer = True
+if args.do_hash:
+    hashtbl = dict()
+    h = 0
 
 ###### affichage graphique
 import matplotlib.pyplot as plt
@@ -60,17 +92,16 @@ def CFL_explicite():
 
 
 ####
-def Advect(u, v, p, do_hash):
+def Advect(u, v, p):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
     
     travaille bien sur le domaine reel [1:-1,1:-1]
 
-    Prend en argument u, v (vecteur vitesses), l (liste des quantités à advecter)
-    et réalise l'advection selon l'équation. Rappel : les arguments sont passés par 
-    valeur en python, mais pour les tableaux, c'est la valeur de la référence qui 
-    est passée. Retourne un tableau dans le meme ordre que l'entrée.
+    Prend en argument u, v (vecteur vitesses), p (quantité à advecter)
+    et réalise l'advection selon l'équation. 
+    Retourne le champ de vecteur advecté.
 
     """
     def check_hash () :
@@ -85,14 +116,14 @@ def Advect(u, v, p, do_hash):
                 i = 0
                 while True:
                     i+=1
-                    if i > max_hash_size :
+                    if i > args.max_hash_size :
                         raise KeyError
                     k, val = hashtbl.popitem()
                     new_hashtbl[k] = val
             except KeyError:
                 hashtbl = new_hashtbl.copy()
 
-    if do_hash and check_hash():
+    if args.do_hash and check_hash():
         # On utilise une table de hashage pour ne pas recalculer tout à chaque fois
         # c'est un dictionnaire qui associe au hash de u, v les valeurs utiles pour 
         # l'advection 1/2 lagrangienne
@@ -121,7 +152,7 @@ def Advect(u, v, p, do_hash):
         Cmy = (1. - av) * au
 
         # On stocke dans la table de hashage
-        if do_hash :
+        if args.do_hash :
             hashtbl[h] = [Mx1, Mx2, My1, My2, au, av, Cc, Ce, Cmx, Cmy]
 
     # on copie le tableau d'entrée l dans res
@@ -344,7 +375,7 @@ NX = int(300)
 NY = int(100)
 
 ### Écart entre les traceurs
-DeltaTraceur = 10
+DeltaTraceur = NY/args.tracers
 
 ### Position de l'obstacle
 ObsX1 = 15
@@ -357,7 +388,7 @@ nx = NX-2
 ny = NY-2
 
 ###### Parametre de controle
-Re = float(1e20)
+Re = float(args.re)
 
 ###### Conditions au limites
 VerticalHeatFlux = bool(0)
@@ -369,13 +400,10 @@ u0 = 10
 ### Nombre d'iterations
 nitermax = int(10000)
 
-### Modulo
-modulo = int(50)
-
 ##### Valeurs initiales des vitesses
 u = np.zeros((NY,NX))+u0
 v = np.zeros((NY,NX))
-if tracer:
+if use_tracer > 0:
     T = np.zeros((NY,NX))
 
 ####################
@@ -455,15 +483,15 @@ for niter in xrange(nitermax):
     t += dt
 
     ###### Etape d'advection semi-Lagrangienne utilisant la méthode BFECC
-    def lets_advect(p, do_BFECC, h_b):
-        if do_BFECC :
-            return Advect(u, v, p + 1/2*(p - Advect(-u, -v, Advect(u, v, p, h_b), h_b)), h_b)
+    def lets_advect(p):
+        if args.BFECC :
+            return Advect(u, v, p + 1/2*(p - Advect(-u, -v, Advect(u, v, p))))
         else :
-            return Advect(u, v, p, h_b)
+            return Advect(u, v, p)
     
-    Resu = lets_advect(u, True, True)
-    Resv = lets_advect(v, True, True)
-    T = lets_advect(T, True, True)
+    Resu = lets_advect(u)
+    Resv = lets_advect(v)
+    T = lets_advect(T)
 
     ###### Etape e diffusion
 
@@ -516,10 +544,10 @@ for niter in xrange(nitermax):
     ###### Mise a jour des points fantomes
 
     VelocityGhostPoints(u,v)
-    if tracer :
+    if use_tracer :
         TraceurGhostPoint(T)
 
-    if (niter%modulo==0):
+    if (niter%args.refresh==0):
 
         ###### logfile
         sys.stdout.write(
