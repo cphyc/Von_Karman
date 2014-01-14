@@ -205,7 +205,7 @@ def BuildLaPoisson():
     
     ### Conditions aux limites : Neumann à gauche, rien à droite
     dataNXi[2][1]     = 2.  # SF left
-#    dataNXi[0][NXi-2] = 2.  # SF right
+    # dataNXi[0][NXi-2] = 2.  # SF right
 
     ###### AXE Y
     ### Diagonal terms
