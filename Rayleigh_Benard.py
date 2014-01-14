@@ -31,6 +31,8 @@ parser.add_argument('--ny', required=False, type=int, default=100,
                     help="Grid size in the y direction")
 parser.add_argument('--ox', required=False, type=int, default=40,
                     help="Obstacle size in the x direction")
+parser.add_argument('--behind', required=False, action='store_true',
+                    help="Tracers behind the obstacle ?")
 parser.add_argument('--oy', required=False, type=int, default=40,
                     help="Obstacle size in the y direction")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
@@ -342,8 +344,11 @@ def colGhostPoints(col):
     col[-1, :] = col[-2, :]
 
 def TraceurGhostPoint(T):
-    for i in range(0, args.colWidth):
-        T[i::DeltaTraceur, 5] = 1
+    if args.behind:
+        T[:, 1] = 1
+    else:
+        for i in range(0, args.colWidth):
+            T[i::DeltaTraceur, 0] = 1
 
 def PhiGhostPoints(phi):
     """
@@ -482,7 +487,9 @@ Tr = 1 - y
 tStart = t
 
 plt.ion()
-
+def col_to_zero(p):
+    p[ObsY1:ObsY2, ObsX1:ObsX2] = 0
+    
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
@@ -497,17 +504,19 @@ for niter in xrange(nitermax):
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
     def lets_advect(p, BFECC, is_col):
         if BFECC :
-            p3 = Advect(u, v, p)
+            p3 = Advect(u, v, p)            
             p2 = Advect(-u, -v, p3)
-            p1 = Advect(u, v, p + 1./2*(p - p2))
+            p1 = Advect(u, v, p + 1./3*(p - p2))
+            col_to_zero(p1)
             return p1
         else :
-            return Advect(u, v, p)
+            p = Advect(u, v, p)
+            col_to_zero(p)
+            return p
     
-    Resu = lets_advect(u, False, False)
-    Resv = lets_advect(v, False, False)
+    Resu = lets_advect(u, args.BFECC, False)
+    Resv = lets_advect(v, args.BFECC, False)
     T = lets_advect(T, args.BFECC, True)
-    print np.max(T[:, 1])
 
     ###### Etape de diffusion
 
@@ -577,13 +586,15 @@ for niter in xrange(nitermax):
         plt.title(plotlabel)
         #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
         #plt.imshow(u[1:-1, 1:-1], origin="lower")
-        plt.imshow(T[1:-1, 1:-1], origin="lower", vmin=0)
+        plt.imshow(T[1:-1, 1:-1], vmin=0, vmax=1)
+        # plt.ioff()
+        # plt.plot(T[50,1:-1],hold=False)
         #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
         #           scale_units="dots", scale=0.9,
         #hold=False)
         plt.axis('image')
         plt.draw()
-        #plt.grid()
+        plt.grid()
         #plt.plot(vstar[75,:])
         #plt.plot(Resv[75,:])
         #plt.plot(u[,:])
