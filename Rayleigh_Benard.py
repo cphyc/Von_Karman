@@ -16,7 +16,7 @@ parser.add_argument('--hash', '-H', required=False, action='store_true',
                     help = 'Use a hash method for speed improvements',
                     dest='do_hash', default=False)
 parser.add_argument('--hash-size', required=False, default=30, 
-                    dest='max_hash_size',
+                    dest='max_hash_size', nargs="?",
                     help='Control the size of the stack for the hash')
 parser.add_argument('--BFECC', '-b', required=False, action='store_true',
                     help='Use the BFECC method for better simulation',
@@ -29,19 +29,33 @@ parser.add_argument('--nx', required=False, type=int, default=300,
                     help="Grid size in the x direction")
 parser.add_argument('--ny', required=False, type=int, default=100,
                     help="Grid size in the y direction")
-parser.add_argument('--ox', required=False, type=int, default=40,
-                    help="Obstacle size in the x direction")
+parser.add_argument('--ox', required=False, type=int, default=15,
+                    help="Obstacle leftest position in the x direction")
 parser.add_argument('--behind', required=False, action='store_true',
                     help="Tracers behind the obstacle ?")
-parser.add_argument('--oy', required=False, type=int, default=40,
-                    help="Obstacle size in the y direction")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
-                    dest="colWidth", help="Size of the tracer")
+                    dest="colWidth", help="Size of the tracers")
+parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
+                    dest="assym", help="Assymetry")
+parser.add_argument('--speed', '-s', required=False, type=int,
+                    default=1, dest="speed", help="Speed at the left")
+parser.add_argument('--sinus', '-S', nargs=2, required=False,
+                    default=(0,0), dest="sinus", 
+                    metavar=('F','A'),
+                    help="Use a sinus at frequency F and amplitude A.")
+parser.add_argument('--rect', required=False, nargs=2, metavar=("WIDTH", "HEIGHT"),
+                    default=(40, 40), 
+                    help="The obstacle is a rectangle of size WIDTH*HEIGHT (default : 40*40).")
+parser.add_argument('--circle', required=False, metavar=("RADIUS"),
+                    type=int, 
+                    help="The obstacle is a circle of radius RADIUS (default : 40) (overrides --rect option).")
 parser.add_argument('--refresh', '-r',type=int,
                     required=False, default=50,
                     dest='refresh', help="Refresh rate")
-
 args=parser.parse_args()
+freq=int(args.sinus[0])
+amp=int(args.sinus[1])
+print args
 if args.do_hash : print 'Using hash algorithm...'
 if args.BFECC : print 'Using BFECC method...'
 else: print 'No BFECC...'
@@ -325,7 +339,7 @@ def grad():
 ###
 def VelocityGhostPoints(u,v):
     ### left
-    u[:,  0] = u0
+    u[:,  0] = args.speed
     v[:,  0] = 0
     ### right      
     u[:, -1] = u[:, -2] 
@@ -367,15 +381,33 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ustar,vstar):
+def VelocityObstacle(ls,t):
     """
     on impose une vitesse nulle sur le carré
-    """
-    global ObsX1, ObsY1, ObsX2, ObsY2
-    ustar[ObsY1:ObsY2, ObsX1:ObsX2] = 0
-    vstar[ObsY1:ObsY2, ObsX1:ObsX2] = 0
-
-
+    """   
+    deltay = np.trunc(
+        amp*np.sin(np.pi*2*freq*t))
+    try: # On a un cercle
+        r = int(args.circle) # échoue si vaut None
+        ox = args.ox + r
+        oy = NY/2 + deltay
+        for x in range(-r,r+1):
+            ym = int(np.sqrt(r**2 - x**2))
+            xabs = x+ox
+            for y in range(-ym, ym+1):
+                yabs = y+oy
+                for el in ls:
+                    el[yabs, xabs] = 0
+    except TypeError : # Si on a un rectangle
+        dx,dy = args.rect
+        # On se place au centre + offset
+        y1 = (NY-dy)/2+args.assym + deltay
+        y2 = y1 + dy
+        x1 = args.ox
+        x2 = x1 + dx
+        for el in ls:
+            el[y1:y2, x1:x2] = 0
+        
 #########################################
 ###### MAIN: Programme principal
 #########################################
@@ -398,10 +430,10 @@ NY = args.ny
 DeltaTraceur = NY/args.tracers
 
 ### Position de l'obstacle
-ObsX1 = 15
-ObsY1 = (NY-args.oy)/2
-ObsX2 = ObsX1+args.ox
-ObsY2 = ObsY1+args.oy
+ObsX1 = 0
+ObsY1 = 0
+ObsX2 = 0
+ObsY2 = 0
 
 ### Taille du domaine reel (sans les points fantomes)
 nx = NX - 2
@@ -487,8 +519,6 @@ Tr = 1 - y
 tStart = t
 
 plt.ion()
-def col_to_zero(p):
-    p[ObsY1:ObsY2, ObsX1:ObsX2] = 0
     
 for niter in xrange(nitermax):
     ###### Check dt
@@ -497,7 +527,6 @@ for niter in xrange(nitermax):
     
     if (dt_new < dt):
         dt = dt_new
-        
     ### Avancement du temps total
     t += dt
 
@@ -507,11 +536,11 @@ for niter in xrange(nitermax):
             p3 = Advect(u, v, p)            
             p2 = Advect(-u, -v, p3)
             p1 = Advect(u, v, p + 1./3*(p - p2))
-            col_to_zero(p1)
+            VelocityObstacle([p1],t)
             return p1
         else :
             p = Advect(u, v, p)
-            col_to_zero(p)
+            VelocityObstacle([p],t)
             return p
     
     Resu = lets_advect(u, args.BFECC, False)
@@ -538,7 +567,7 @@ for niter in xrange(nitermax):
     ustar[0,  :] = 0.0
     vstar[0,  :] = vstar[1, :]
     ###### Réctification de ustar et vstar pour avoir une vitesse nulle
-    VelocityObstacle(ustar,vstar)
+    VelocityObstacle([ustar,vstar],t)
     ###### END Conditions aux limites
 
     ###### Etape de projection
