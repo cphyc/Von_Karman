@@ -10,6 +10,9 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as lg
 import time
 import argparse
+import matplotlib.pyplot as plt
+import pp
+jober = pp.Server()
 
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
@@ -32,7 +35,10 @@ parser.add_argument('--ny', required=False, type=int, default=100,
 parser.add_argument('--ox', required=False, type=int, default=15,
                     help="Obstacle leftest position in the x direction")
 parser.add_argument('--behind', required=False, action='store_true',
-                    help="Tracers behind the obstacle ?")
+                    help="Tracers behind the obstacle")
+parser.add_argument('--parallel', required=False, action='store_true',
+                    help="Use parallel processing")
+parser.add_argument('--out', required=False, default="test.png")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
                     dest="colWidth", help="Size of the tracers")
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
@@ -74,13 +80,12 @@ if args.do_hash:
     h = 0
 
 ###### affichage graphique
-import matplotlib.pyplot as plt
-plt.ion()
-if 'qt' in plt.get_backend().lower():
-    try:
-        from PyQt4 import QtGui
-    except ImportError:
-        from PySide import QtGui
+# import matplotlib.pyplot as plt
+# if 'qt' in plt.get_backend().lower():
+#     try:
+#         from PyQt4 import QtGui
+#     except ImportError:
+#         from PySide import QtGui
 
                  
 def CFL_advection():
@@ -407,7 +412,37 @@ def VelocityObstacle(ls,t):
         x2 = x1 + dx
         for el in ls:
             el[y1:y2, x1:x2] = 0
-        
+            
+def ploter(param):
+    import matplotlib.pyplot as plt
+    # plt.ion()
+    args = param['args']
+    t = param['t']
+    T = param['T']
+
+    ## FIGURE draw works only if plt.ion()
+    plotlabel = "t = %1.5f" %(t)
+    plt.title(plotlabel)
+    #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
+    #plt.imshow(u[1:-1, 1:-1], origin="lower")
+    plt.imshow(T[1:-1, 1:-1], vmin=0, vmax=1,figure=0)
+    # plt.ioff()
+    # plt.plot(T[50,1:-1],hold=False)
+    #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
+    #           scale_units="dots", scale=0.9,
+    #hold=False)
+    plt.axis('image')
+    # plt.draw()
+    plt.grid()
+    #plt.plot(vstar[75,:])
+    #plt.plot(Resv[75,:])
+    #plt.plot(u[,:])
+    plt.savefig(args.out)
+
+    ###### Gael's tricks interactif
+    # if 'qt' in plt.get_backend().lower():
+    #     QtGui.qApp.processEvents()
+                
 #########################################
 ###### MAIN: Programme principal
 #########################################
@@ -518,8 +553,9 @@ Tr = 1 - y
 ###### MAIN LOOP 
 tStart = t
 
-plt.ion()
-    
+# Liste des taches. Par défaut, on met 4 fonctions qui renvoient 0
+j = [(0,lambda:0), (0,lambda:0), (0,lambda:0), (0,lambda:0)]
+
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
@@ -592,44 +628,31 @@ for niter in xrange(nitermax):
     v = vstar - gradphiy
 
     ###### Mise a jour des points fantomes
-
     VelocityGhostPoints(u,v)
     if use_tracer :
         TraceurGhostPoint(T)
 
     if (niter%args.refresh==0):
-
         ###### logfile
         sys.stdout.write(
             '\niteration: %d -- %i %%\n'
             '\n'
             'total time     = %.2e\n'
             '\n'
-            %(niter,                    
+            %(niter,
               float(niter)/nitermax*100,
-              t))
-        
-        
-        ###### FIGURE draw works only if plt.ion()
-        plotlabel = "t = %1.5f" %(t)
-        plt.title(plotlabel)
-        #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
-        #plt.imshow(u[1:-1, 1:-1], origin="lower")
-        plt.imshow(T[1:-1, 1:-1], vmin=0, vmax=1)
-        # plt.ioff()
-        # plt.plot(T[50,1:-1],hold=False)
-        #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
-        #           scale_units="dots", scale=0.9,
-        #hold=False)
-        plt.axis('image')
-        plt.draw()
-        plt.grid()
-        #plt.plot(vstar[75,:])
-        #plt.plot(Resv[75,:])
-        #plt.plot(u[,:])
-        
+             t))
 
-        ###### Gael's tricks interactif
-        if 'qt' in plt.get_backend().lower():
-            QtGui.qApp.processEvents()
-plt.ioff()
+        param={"args":args, "t":t, "T":T, "nitermax" : nitermax}
+        if args.parallel:
+            j.append((niter,
+                    jober.submit(ploter,(param,),(),("matplotlib.pyplot",) )))
+            # On récupère et supprime le 1er él,
+            # et on attend la fin de son exécution
+            niter0, wait_next = j.pop(0)
+            print "We're at ",niter,". Waiting for the end of :", niter0
+            wait_next()
+        else:
+            ploter(param)
+
+
