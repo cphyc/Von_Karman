@@ -11,8 +11,6 @@ import scipy.sparse.linalg as lg
 import time
 import argparse
 import matplotlib.pyplot as plt
-import pp
-jober = pp.Server()
 
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
@@ -569,6 +567,8 @@ tStart = t
 
 # Liste des taches. Par défaut, on met 4 fonctions qui renvoient 0
 if args.parallel or args.max_parallel:
+    import pp
+    jober = pp.Server()
     j=[]
     for i in xrange(int(args.nprocess)):
         j.append((0,lambda:0))
