@@ -5,7 +5,7 @@
 #      avec points fantomes
 #
 import sys
-import numpy as np
+import numpy
 import scipy.sparse as sp
 import scipy.sparse.linalg as lg
 import time
@@ -37,7 +37,11 @@ parser.add_argument('--ox', required=False, type=int, default=15,
 parser.add_argument('--behind', required=False, action='store_true',
                     help="Tracers behind the obstacle")
 parser.add_argument('--parallel', required=False, action='store_true',
-                    help="Use parallel processing")
+                    help="Use parallel processing for plotting")
+parser.add_argument('--max_parallel', required=False, action='store_true',
+                    help="Use parallel processing for processing")
+parser.add_argument('--nprocess', required=False, type=int, default=5,
+                    help="Number of coprocessors to use")
 parser.add_argument('--out', required=False, default="test.png")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
                     dest="colWidth", help="Size of the tracers")
@@ -99,8 +103,8 @@ def CFL_advection():
 
     """
     precautionADV = 0.8
-    umax = max(np.abs(u).max(),0.01) 
-    vmax = max(np.abs(v).max(),0.01)
+    umax = max(numpy.abs(u).max(),0.01) 
+    vmax = max(numpy.abs(v).max(),0.01)
     dt_cfa = precautionADV * min(dx/umax,dy/vmax)
 
     return dt_cfa
@@ -122,7 +126,7 @@ def CFL_explicite():
 
 
 ####
-def Advect(u, v, col):
+def Advect(u, v, col,param):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
@@ -134,6 +138,11 @@ def Advect(u, v, col):
     Retourne le champ de vecteur advecté.
 
     """
+    args=param['args']
+    dx=param["dx"]
+    dy=param['dy']
+    dt=param['dt']
+    u,v = param['u'], param['v']
     def check_hash () :
         """ Retourne un booléen si h est dans la hashtbl """
         global hashtbl, h
@@ -162,12 +171,12 @@ def Advect(u, v, col):
         # On n'a pas encore calculé, on le fait donc
         # Matrice avec des 1 quand on va a droite, 
         # 0 a gauche ou au centre
-        Mx2 = np.sign(np.sign(u[1:-1,1:-1]) + 1.)
+        Mx2 = numpy.sign(numpy.sign(u[1:-1,1:-1]) + 1.)
         Mx1 = 1. - Mx2
 
         # Matrice avec des 1 quand on va en haut, 
         # 0 en bas ou au centre
-        My2 = np.sign(np.sign(v[1:-1,1:-1]) + 1.)
+        My2 = numpy.sign(numpy.sign(v[1:-1,1:-1]) + 1.)
         My1 = 1. - My2
 
         # Matrices en valeurs absolues pour u et v
@@ -222,7 +231,7 @@ def BuildLaPoisson():
 
     ###### AXE X
     ### Diagonal terms
-    dataNXi = [np.ones(NXi), -2*np.ones(NXi), np.ones(NXi)]   
+    dataNXi = [numpy.ones(NXi), -2*numpy.ones(NXi), numpy.ones(NXi)]   
     
     ### Conditions aux limites : Neumann à gauche, rien à droite
     dataNXi[2][1]     = 2.  # SF left
@@ -230,14 +239,14 @@ def BuildLaPoisson():
 
     ###### AXE Y
     ### Diagonal terms
-    dataNYi = [np.ones(NYi), -2*np.ones(NYi), np.ones(NYi)] 
+    dataNYi = [numpy.ones(NYi), -2*numpy.ones(NYi), numpy.ones(NYi)] 
    
     ### Conditions aux limites : Neumann 
     dataNYi[2][1]     = 2.  # SF low
     dataNYi[0][NYi-2] = 2.  # SF top
 
     ###### Their positions
-    offsets = np.array([-1,0,1])                    
+    offsets = numpy.array([-1,0,1])                    
     DXX = sp.dia_matrix((dataNXi,offsets), shape=(NXi,NXi)) * dx_2
     DYY = sp.dia_matrix((dataNYi,offsets), shape=(NYi,NYi)) * dy_2
     #print DXX.todense()
@@ -249,8 +258,8 @@ def BuildLaPoisson():
     ####### BUILD CORRECTION MATRIX
 
     ### Upper Diagonal terms
-    dataNYNXi = [np.zeros(NYi*NXi)]
-    offset = np.array([1])
+    dataNYNXi = [numpy.zeros(NYi*NXi)]
+    offset = numpy.array([1])
 
     ### Fix coef: 2+(-1) = 1 ==> Dirichlet en un point (redonne Laplacien)
     ### ATTENTION  COEF MULTIPLICATIF : dx_2 si M(j,i) j-NY i-NX
@@ -306,7 +315,7 @@ def Laplacien(x):
     pas de termes de bord car ghost points
 
     """
-    rst = np.empty((NY,NX))
+    rst = numpy.empty((NY,NX))
 
     coef0 = -2*(dx_2 + dy_2) 
     
@@ -321,7 +330,7 @@ def divergence(u,v):
     ne jamais utiliser les valeurs au bord
 
     """
-    tmp = np.empty((NY,NX))
+    tmp = numpy.empty((NY,NX))
     
     tmp[1:-1,1:-1] = (
         (u[1:-1, 2:] - u[1:-1, :-2])/dx/2 +
@@ -386,18 +395,23 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ls,t):
+def VelocityObstacle(ls,t, param):
     """
     on impose une vitesse nulle sur le carré
-    """   
-    deltay = np.trunc(
-        amp*np.sin(np.pi*2*freq*t))
+    """
+    args=param['args']
+    freq=param['freq']
+    amp=param['amp']
+    dx, dy = param["dx"], param["dy"]
+    NX, NY = param["NX"], param["NY"]
+    deltay = numpy.trunc(
+        amp*numpy.sin(numpy.pi*2*freq*t))
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
         oy = NY/2 + deltay
         for x in range(-r,r+1):
-            ym = int(np.sqrt(r**2 - x**2))
+            ym = int(numpy.sqrt(r**2 - x**2))
             xabs = x+ox
             for y in range(-ym, ym+1):
                 yabs = y+oy
@@ -423,7 +437,7 @@ def ploter(param):
     ## FIGURE draw works only if plt.ion()
     plotlabel = "t = %1.5f" %(t)
     plt.title(plotlabel)
-    #plt.imshow(np.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
+    #plt.imshow(numpy.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
     #plt.imshow(u[1:-1, 1:-1], origin="lower")
     plt.imshow(T[1:-1, 1:-1], vmin=0, vmax=1,figure=0)
     # plt.ioff()
@@ -488,10 +502,10 @@ u0 = 10
 nitermax = int(10000)
 
 ##### Valeurs initiales des vitesses
-u = np.zeros((NY,NX))+u0
-v = np.zeros((NY,NX))
+u = numpy.zeros((NY,NX))+u0
+v = numpy.zeros((NY,NX))
 if use_tracer > 0:
-    T = np.zeros((NY,NX))
+    T = numpy.zeros((NY,NX))
 
 ####################
 ###### COEF POUR ADIM
@@ -515,20 +529,20 @@ t = 0. # total time
 
 ### Tableaux avec points fantomes
 ### Matrices dans lesquelles se trouvent les extrapolations
-Resu = np.zeros((NY,NX))
-Resv = np.zeros((NY,NX))
+Resu = numpy.zeros((NY,NX))
+Resv = numpy.zeros((NY,NX))
 
 ### Definition des matrices ustar et vstar
-ustar = np.zeros((NY,NX))
-vstar = np.zeros((NY,NX))
+ustar = numpy.zeros((NY,NX))
+vstar = numpy.zeros((NY,NX))
 
 ### Definition de divstar
-divstar = np.zeros((NY,NX))
+divstar = numpy.zeros((NY,NX))
 
 ### Definition de la pression phi
-phi      = np.zeros((NY,NX))
-gradphix = np.zeros((NY,NX))
-gradphiy = np.zeros((NY,NX))
+phi      = numpy.zeros((NY,NX))
+gradphix = numpy.zeros((NY,NX))
+gradphiy = numpy.zeros((NY,NX))
 
 
 ###### CONSTRUCTION des matrices et LU décomposition
@@ -539,9 +553,9 @@ LUPoisson = ILUdecomposition(LAPoisson)
 
 ### Maillage pour affichage (inutile)
 # ne pas compter les points fantomes
-x = np.linspace(0,LX,nx) 
-y = np.linspace(0,LY,ny)
-[xx,yy] = np.meshgrid(x,y) 
+x = numpy.linspace(0,LX,nx) 
+y = numpy.linspace(0,LY,ny)
+[xx,yy] = numpy.meshgrid(x,y) 
 
 ###### CFL explicite
 dt_exp = CFL_explicite()
@@ -554,7 +568,10 @@ Tr = 1 - y
 tStart = t
 
 # Liste des taches. Par défaut, on met 4 fonctions qui renvoient 0
-j = [(0,lambda:0), (0,lambda:0), (0,lambda:0), (0,lambda:0)]
+if args.parallel or args.max_parallel:
+    j=[]
+    for i in xrange(int(args.nprocess)):
+        j.append((0,lambda:0))
 
 for niter in xrange(nitermax):
     ###### Check dt
@@ -567,21 +584,34 @@ for niter in xrange(nitermax):
     t += dt
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
-    def lets_advect(p, BFECC, is_col):
+    def lets_advect(p, BFECC, param):
+        args=param['args']
+        t=param['t']
+        u,v=param['u'], param['v']
         if BFECC :
-            p3 = Advect(u, v, p)            
-            p2 = Advect(-u, -v, p3)
-            p1 = Advect(u, v, p + 1./3*(p - p2))
-            VelocityObstacle([p1],t)
+            p3 = Advect(u, v, p, param)          
+            p2 = Advect(-u, -v, p3, param)
+            p1 = Advect(u, v, p + 1./3*(p - p2), param)
+            VelocityObstacle([p1],t,param)
             return p1
         else :
-            p = Advect(u, v, p)
-            VelocityObstacle([p],t)
+            p = Advect(u, v, p, param)
+            VelocityObstacle([p],t, param)
             return p
-    
-    Resu = lets_advect(u, args.BFECC, False)
-    Resv = lets_advect(v, args.BFECC, False)
-    T = lets_advect(T, args.BFECC, True)
+        
+    param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
+             'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY}
+    if args.max_parallel:
+        ResuP = jober.submit(lets_advect, (u, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        ResvP = jober.submit(lets_advect, (v, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        TP = jober.submit(lets_advect, (T, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        Resu = ResuP()
+        Resv = ResvP()
+        T = TP()
+    else:
+        Resu = lets_advect(u, args.BFECC, param)
+        Resv = lets_advect(v, args.BFECC, param)
+        T = lets_advect(T, args.BFECC, param)
 
     ###### Etape de diffusion
 
@@ -603,7 +633,7 @@ for niter in xrange(nitermax):
     ustar[0,  :] = 0.0
     vstar[0,  :] = vstar[1, :]
     ###### Réctification de ustar et vstar pour avoir une vitesse nulle
-    VelocityObstacle([ustar,vstar],t)
+    VelocityObstacle([ustar,vstar],t, param)
     ###### END Conditions aux limites
 
     ###### Etape de projection
@@ -643,8 +673,9 @@ for niter in xrange(nitermax):
               float(niter)/nitermax*100,
              t))
 
-        param={"args":args, "t":t, "T":T, "nitermax" : nitermax}
-        if args.parallel:
+        param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
+               "dx":dx, "dy":dy}
+        if args.parallel or args.max_parallel:
             j.append((niter,
                     jober.submit(ploter,(param,),(),("matplotlib.pyplot",) )))
             # On récupère et supprime le 1er él,
