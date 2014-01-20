@@ -199,28 +199,19 @@ def Advect(u, v, p, param):
 
     # on copie le tableau d'entrée l dans res
     # res = p.copy()
-    # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i] 
-    return [(Cc * p0[1:-1, 1:-1] +            
-                      Ce * (Mx1*My1 * p0[2:, 2:] + 
-                            Mx1*My2 * p0[:-2, 2:] +
-                            Mx2*My1 * p0[2:, :-2] +
-                            Mx2*My2 * p0[:-2, :-2]) +  
-                      Cmx * (My1 * p0[2:, 1:-1] +
-                             My2 * p0[:-2, 1:-1]) +   
-                      Cmy * (Mx1 * p0[1:-1, 2:] +
-                             Mx2 * p0[1:-1, :-2])) for p0 in p]
-    return res
-    # def compute (p0):
-    #     return (Cc * p0[1:-1, 1:-1] +
-    #             Ce * (  Mx1*My1 * p0[2:, 2:] + 
-    #                     Mx1*My2 * p0[:-2, 2:] +
-    #                     Mx2*My1 * p0[2:, :-2] +
-    #                     Mx2*My2 * p0[:-2, :-2]) +  
-    #             Cmx * ( My1 * p0[2:, 1:-1] +
-    #                     My2 * p0[:-2, 1:-1]) +   
-    #                     Cmy * (Mx1 * p0[1:-1, 2:] +
-    #                     Mx2 * p0[1:-1, :-2]))
-    # return map(compute, p)
+    # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i]
+    ret=[numpy.empty(p0.shape) for p0 in p]
+    for r in ret:
+        r[1:-1, 1:-1] = (Cc * p0[1:-1, 1:-1] +            
+            Ce * (  Mx1*My1 * p0[2:, 2:] + 
+                    Mx1*My2 * p0[:-2, 2:] +
+                    Mx2*My1 * p0[2:, :-2] +
+                    Mx2*My2 * p0[:-2, :-2]) +  
+            Cmx * ( My1 * p0[2:, 1:-1] +
+                    My2 * p0[:-2, 1:-1]) +   
+            Cmy * ( Mx1 * p0[1:-1, 2:] +
+                    Mx2 * p0[1:-1, :-2]))
+    return ret
 
 def BuildLaPoisson():
     """
@@ -426,7 +417,6 @@ def VelocityObstacle(ls ,t, param):
                 for el in ls:
                     el[yabs, xabs] = 0
     except TypeError : # Si on a un rectangle
-        # On crée le chemin
         dx,dy = args.rect
         y1 = (NY-dy)/2+args.assym + deltay
         y2 = y1 + dy
@@ -499,7 +489,7 @@ u0 = 10
 
 ###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
-nitermax = int(80)
+nitermax = int(10000)
 
 ##### Valeurs initiales des vitesses
 u = numpy.zeros((NY,NX))+u0
@@ -558,8 +548,10 @@ y = numpy.linspace(0,LY,ny)
 
 ###### CFL explicite
 dt_exp = CFL_explicite()
-
-
+if args.BFECC:
+    p1 = numpy.zeros((NX,NY))
+    p3 = numpy.zeros((NY,NX))
+    p2 = numpy.zeros((NY,NX))
 ################
 ###### MAIN LOOP 
 
@@ -586,9 +578,10 @@ for niter in xrange(nitermax):
         t=param['t']
         u,v=param['u'], param['v']
         if BFECC :
-            p3 = Advect(u, v, p, param)          
+            p3 = Advect(u, v, p, param)
             p2 = Advect(-u, -v, p3, param)
-            p1 = Advect(u, v, p + 1./3*(p - p2), param)
+            prect = [pel + 1./3*(pel - p2el) for (pel, p2el) in zip(p, p2)]
+            p1 = Advect(u, v, prect, param)
             VelocityObstacle(p1,t,param)
             return p1
         else :
@@ -599,16 +592,20 @@ for niter in xrange(nitermax):
     param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
              'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY}
     if args.max_parallel:
-        ResuP = jober.submit(lets_advect, ([u], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        ResvP = jober.submit(lets_advect, ([v], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        TP = jober.submit(lets_advect, ([T], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        Resu[1:-1, 1:-1] = ResuP()
-        Resv[1:-1, 1:-1] = ResvP()
-        T[1:-1, 1:-1] = TP()
+        ResuP = jober.submit(lets_advect,
+                             ([u], args.BFECC, param),
+                             (Advect,VelocityObstacle),("numpy",))
+        ResvP = jober.submit(lets_advect,
+                             ([v], args.BFECC, param),
+                             (Advect,VelocityObstacle),("numpy",))
+        TP = jober.submit(lets_advect,
+                          ([T], args.BFECC, param),
+                          (Advect,VelocityObstacle),("numpy",))
+        [Resu] = ResuP()
+        [Resv] = ResvP()
+        [T] = TP()
     else:
-        Resu[1:-1, 1:-1],Resv[1:-1, 1:-1],T[1:-1, 1:-1] = lets_advect([u,v,T],
-                                                                       args.BFECC,
-                                                                        param)
+        Resu,Resv,T = lets_advect([u,v,T], args.BFECC, param)
 
     ###### Etape de diffusion
 
@@ -685,5 +682,5 @@ for niter in xrange(nitermax):
             ploter(param)
 
 if args.parallel or args.max_parallel:
-    print "Waitng the end of the threads"
+    print "Waiting the end of the threads"
     [w() for n,w in j]          
