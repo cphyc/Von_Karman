@@ -412,7 +412,9 @@ def VelocityObstacle(ls,t, param):
                 for el in ls:
                     el[yabs, xabs] = 0
     except TypeError : # Si on a un rectangle
-        dx,dy = args.rect
+        ds = args.rect
+        dx=float(ds[0])
+        dy=float(ds[1])
         # On se place au centre + offset
         y1 = (NY-dy)/2+args.assym + deltay
         y2 = y1 + dy
@@ -484,7 +486,7 @@ u0 = 10
 
 ###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
-nitermax = int(100)
+nitermax = int(10000)
 
 ##### Valeurs initiales des vitesses
 u = numpy.zeros((NY,NX))+u0
