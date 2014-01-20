@@ -200,27 +200,27 @@ def Advect(u, v, p, param):
     # on copie le tableau d'entrée l dans res
     # res = p.copy()
     # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i] 
-    # res[1:-1,1:-1] = (Cc * p[1:-1, 1:-1] +            
-    #                   Ce * (Mx1*My1 * p[2:, 2:] + 
-    #                         Mx1*My2 * p[:-2, 2:] +
-    #                         Mx2*My1 * p[2:, :-2] +
-    #                         Mx2*My2 * p[:-2, :-2]) +  
-    #                   Cmx * (My1 * p[2:, 1:-1] +
-    #                          My2 * p[:-2, 1:-1]) +   
-    #                   Cmy * (Mx1 * p[1:-1, 2:] +
-    #                          Mx2 * p[1:-1, :-2]))
-    # return res
-    def compute (p0):
-        return (Cc * p0[1:-1, 1:-1] +
-                Ce * (  Mx1*My1 * p0[2:, 2:] + 
-                        Mx1*My2 * p0[:-2, 2:] +
-                        Mx2*My1 * p0[2:, :-2] +
-                        Mx2*My2 * p0[:-2, :-2]) +  
-                Cmx * ( My1 * p0[2:, 1:-1] +
-                        My2 * p0[:-2, 1:-1]) +   
-                        Cmy * (Mx1 * p0[1:-1, 2:] +
-                        Mx2 * p0[1:-1, :-2]))
-    return map(compute, p)
+    return [(Cc * p0[1:-1, 1:-1] +            
+                      Ce * (Mx1*My1 * p0[2:, 2:] + 
+                            Mx1*My2 * p0[:-2, 2:] +
+                            Mx2*My1 * p0[2:, :-2] +
+                            Mx2*My2 * p0[:-2, :-2]) +  
+                      Cmx * (My1 * p0[2:, 1:-1] +
+                             My2 * p0[:-2, 1:-1]) +   
+                      Cmy * (Mx1 * p0[1:-1, 2:] +
+                             Mx2 * p0[1:-1, :-2])) for p0 in p]
+    return res
+    # def compute (p0):
+    #     return (Cc * p0[1:-1, 1:-1] +
+    #             Ce * (  Mx1*My1 * p0[2:, 2:] + 
+    #                     Mx1*My2 * p0[:-2, 2:] +
+    #                     Mx2*My1 * p0[2:, :-2] +
+    #                     Mx2*My2 * p0[:-2, :-2]) +  
+    #             Cmx * ( My1 * p0[2:, 1:-1] +
+    #                     My2 * p0[:-2, 1:-1]) +   
+    #                     Cmy * (Mx1 * p0[1:-1, 2:] +
+    #                     Mx2 * p0[1:-1, :-2]))
+    # return map(compute, p)
 
 def BuildLaPoisson():
     """
@@ -602,9 +602,9 @@ for niter in xrange(nitermax):
         ResuP = jober.submit(lets_advect, ([u], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
         ResvP = jober.submit(lets_advect, ([v], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
         TP = jober.submit(lets_advect, ([T], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        Resu = ResuP()
-        Resv = ResvP()
-        T = TP()
+        Resu[1:-1, 1:-1] = ResuP()
+        Resv[1:-1, 1:-1] = ResvP()
+        T[1:-1, 1:-1] = TP()
     else:
         Resu[1:-1, 1:-1],Resv[1:-1, 1:-1],T[1:-1, 1:-1] = lets_advect([u,v,T],
                                                                        args.BFECC,
