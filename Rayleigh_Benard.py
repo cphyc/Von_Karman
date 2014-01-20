@@ -417,12 +417,14 @@ def VelocityObstacle(ls ,t, param):
                 for el in ls:
                     el[yabs, xabs] = 0
     except TypeError : # Si on a un rectangle
-        dx,dy = args.rect
+        ds = args.rect
+        dx=float(ds[0])
+        dy=float(ds[1])
+        # On se place au centre + offset
         y1 = (NY-dy)/2+args.assym + deltay
         y2 = y1 + dy
         x1 = args.ox
         x2 = x1 + dx
-        # On se place au centre + offset
         for el in ls:
             el[y1:y2, x1:x2] = 0
             
