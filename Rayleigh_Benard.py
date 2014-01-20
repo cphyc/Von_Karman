@@ -36,7 +36,7 @@ parser.add_argument('--parallel', required=False, action='store_true',
                     help="Use parallel processing for plotting")
 parser.add_argument('--max_parallel', required=False, action='store_true',
                     help="Use parallel processing for processing")
-parser.add_argument('--nprocess', required=False, type=int, default=5,
+parser.add_argument('--nprocess', required=False, type=int, default=2,
                     help="Number of coprocessors to use")
 parser.add_argument('--out', required=False, default="test.png")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
@@ -103,10 +103,13 @@ def CFL_advection():
 
     """
     precautionADV = 0.8
-    umax = max(numpy.abs(u).max(),0.01) 
-    vmax = max(numpy.abs(v).max(),0.01)
-    dt_cfa = precautionADV * min(dx/umax,dy/vmax)
-
+    umax = numpy.amax(numpy.abs(u))
+    vmax = numpy.amax(numpy.abs(v))
+    divider = max(umax/dx, vmax/dy, 0.01/dx, 0.01/dy)
+    dt_cfa = precautionADV / divider
+    # umax = max(numpy.abs(u).max(),0.01) 
+    # vmax = max(numpy.abs(v).max(),0.01)
+    # dt_cfa = precautionADV * min(dx/umax,dy/vmax)
     return dt_cfa
 
 def CFL_explicite():
@@ -126,14 +129,14 @@ def CFL_explicite():
 
 
 ####
-def Advect(u, v, col,param):
+def Advect(u, v, p, param):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
     
     travaille bien sur le domaine reel [1:-1,1:-1]
 
-    Prend en argument u, v (vecteur vitesses), p (quantité à advecter)
+    Prend en argument u, v (vecteur vitesses), p (quantités à advecter)
     et réalise l'advection selon l'équation. 
     Retourne le champ de vecteur advecté.
 
@@ -195,18 +198,29 @@ def Advect(u, v, col,param):
             hashtbl[h] = [Mx1, Mx2, My1, My2, au, av, Cc, Ce, Cmx, Cmy]
 
     # on copie le tableau d'entrée l dans res
-    res = col.copy()
+    # res = p.copy()
     # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i] 
-    res[1:-1,1:-1] = (Cc * col[1:-1, 1:-1] +            
-                      Ce * (Mx1*My1 * col[2:, 2:] + 
-                            Mx1*My2 * col[:-2, 2:] +
-                            Mx2*My1 * col[2:, :-2] +
-                            Mx2*My2 * col[:-2, :-2]) +  
-                      Cmx * (My1 * col[2:, 1:-1] +
-                             My2 * col[:-2, 1:-1]) +   
-                      Cmy * (Mx1 * col[1:-1, 2:] +
-                             Mx2 * col[1:-1, :-2]))
-    return res
+    # res[1:-1,1:-1] = (Cc * p[1:-1, 1:-1] +            
+    #                   Ce * (Mx1*My1 * p[2:, 2:] + 
+    #                         Mx1*My2 * p[:-2, 2:] +
+    #                         Mx2*My1 * p[2:, :-2] +
+    #                         Mx2*My2 * p[:-2, :-2]) +  
+    #                   Cmx * (My1 * p[2:, 1:-1] +
+    #                          My2 * p[:-2, 1:-1]) +   
+    #                   Cmy * (Mx1 * p[1:-1, 2:] +
+    #                          Mx2 * p[1:-1, :-2]))
+    # return res
+    def compute (p0):
+        return (Cc * p0[1:-1, 1:-1] +
+                Ce * (  Mx1*My1 * p0[2:, 2:] + 
+                        Mx1*My2 * p0[:-2, 2:] +
+                        Mx2*My1 * p0[2:, :-2] +
+                        Mx2*My2 * p0[:-2, :-2]) +  
+                Cmx * ( My1 * p0[2:, 1:-1] +
+                        My2 * p0[:-2, 1:-1]) +   
+                        Cmy * (Mx1 * p0[1:-1, 2:] +
+                        Mx2 * p0[1:-1, :-2]))
+    return map(compute, p)
 
 def BuildLaPoisson():
     """
@@ -346,8 +360,8 @@ def grad():
     """
     global gradphix, gradphiy
 
-    gradphix[:, 1:-1] = (phi[:, 2:] - phi[:, :-2])/dx/2
-    gradphiy[1:-1, :] = (phi[2:, :] - phi[:-2, :])/dy/2
+    gradphix[:, 1:-1] = (phi[:, 2:] - phi[:, :-2])/(dx*2)
+    gradphiy[1:-1, :] = (phi[2:, :] - phi[:-2, :])/(dy*2)
 
        
 ###
@@ -389,7 +403,7 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ls,t, param):
+def VelocityObstacle(ls ,t, param):
     """
     on impose une vitesse nulle sur le carré
     """
@@ -412,12 +426,13 @@ def VelocityObstacle(ls,t, param):
                 for el in ls:
                     el[yabs, xabs] = 0
     except TypeError : # Si on a un rectangle
+        # On crée le chemin
         dx,dy = args.rect
-        # On se place au centre + offset
         y1 = (NY-dy)/2+args.assym + deltay
         y2 = y1 + dy
         x1 = args.ox
         x2 = x1 + dx
+        # On se place au centre + offset
         for el in ls:
             el[y1:y2, x1:x2] = 0
             
@@ -484,7 +499,7 @@ u0 = 10
 
 ###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
-nitermax = int(100)
+nitermax = int(80)
 
 ##### Valeurs initiales des vitesses
 u = numpy.zeros((NY,NX))+u0
@@ -574,26 +589,26 @@ for niter in xrange(nitermax):
             p3 = Advect(u, v, p, param)          
             p2 = Advect(-u, -v, p3, param)
             p1 = Advect(u, v, p + 1./3*(p - p2), param)
-            VelocityObstacle([p1],t,param)
+            VelocityObstacle(p1,t,param)
             return p1
         else :
-            p = Advect(u, v, p, param)
-            VelocityObstacle([p],t, param)
-            return p
+            p1 = Advect(u, v, p, param)
+            VelocityObstacle(p1,t, param)
+            return p1
         
     param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
              'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY}
     if args.max_parallel:
-        ResuP = jober.submit(lets_advect, (u, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        ResvP = jober.submit(lets_advect, (v, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        TP = jober.submit(lets_advect, (T, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        ResuP = jober.submit(lets_advect, ([u], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        ResvP = jober.submit(lets_advect, ([v], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        TP = jober.submit(lets_advect, ([T], args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
         Resu = ResuP()
         Resv = ResvP()
         T = TP()
     else:
-        Resu = lets_advect(u, args.BFECC, param)
-        Resv = lets_advect(v, args.BFECC, param)
-        T = lets_advect(T, args.BFECC, param)
+        Resu[1:-1, 1:-1],Resv[1:-1, 1:-1],T[1:-1, 1:-1] = lets_advect([u,v,T],
+                                                                       args.BFECC,
+                                                                        param)
 
     ###### Etape de diffusion
 
