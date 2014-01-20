@@ -363,17 +363,11 @@ def VelocityGhostPoints(u,v):
     u[-1, :] = -u[-3, :] 
     v[-1, :] = v[-3, :] 
 
-def colGhostPoints(col):
-    col[:,  0] = col[:,  1]
-    col[:, -1] = col[:, -2]
-    col[0,  :] = col[1,  :]
-    col[-1, :] = col[-2, :]
-
 def TraceurGhostPoint(T):
     if args.behind:
         T[:, 1] = 1
     else:
-        for i in range(0, args.colWidth):
+        for i in xrange(0, args.colWidth):
             T[i::DeltaTraceur, 0] = 1
 
 def PhiGhostPoints(phi):
@@ -408,10 +402,10 @@ def VelocityObstacle(ls,t, param):
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
         oy = NY/2 + deltay
-        for x in range(-r,r+1):
+        for x in xrange(-r,r+1):
             ym = int(numpy.sqrt(r**2 - x**2))
             xabs = x+ox
-            for y in range(-ym, ym+1):
+            for y in xrange(-ym, ym+1):
                 yabs = y+oy
                 for el in ls:
                     el[yabs, xabs] = 0
@@ -476,12 +470,6 @@ NY = args.ny
 ### Écart entre les traceurs
 DeltaTraceur = NY/args.tracers
 
-### Position de l'obstacle
-ObsX1 = 0
-ObsY1 = 0
-ObsX2 = 0
-ObsY2 = 0
-
 ### Taille du domaine reel (sans les points fantomes)
 nx = NX - 2
 ny = NY - 2
@@ -489,15 +477,12 @@ ny = NY - 2
 ###### Parametre de controle
 Re = float(args.re)
 
-###### Conditions au limites
-VerticalHeatFlux = bool(0)
-
 ###### Vitesse en entrée
 u0 = 10
 
 ###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
-nitermax = int(10000)
+nitermax = int(100)
 
 ##### Valeurs initiales des vitesses
 u = numpy.zeros((NY,NX))+u0
@@ -553,17 +538,13 @@ LUPoisson = ILUdecomposition(LAPoisson)
 # ne pas compter les points fantomes
 x = numpy.linspace(0,LX,nx) 
 y = numpy.linspace(0,LY,ny)
-[xx,yy] = numpy.meshgrid(x,y) 
 
 ###### CFL explicite
 dt_exp = CFL_explicite()
 
-###### Reference state
-Tr = 1 - y
 
 ################
 ###### MAIN LOOP 
-tStart = t
 
 # Liste des taches. Par défaut, on met 4 fonctions qui renvoient 0
 if args.parallel or args.max_parallel:
@@ -572,7 +553,7 @@ if args.parallel or args.max_parallel:
     j=[]
     for i in xrange(int(args.nprocess)):
         j.append((0,lambda:0))
-
+        
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
@@ -585,7 +566,6 @@ for niter in xrange(nitermax):
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
     def lets_advect(p, BFECC, param):
-        args=param['args']
         t=param['t']
         u,v=param['u'], param['v']
         if BFECC :
@@ -685,5 +665,6 @@ for niter in xrange(nitermax):
             wait_next()
         else:
             ploter(param)
+
 
 
