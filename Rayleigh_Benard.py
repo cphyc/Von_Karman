@@ -8,9 +8,7 @@ import sys
 import numpy
 import scipy.sparse as sp
 import scipy.sparse.linalg as lg
-import time
 import argparse
-import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
@@ -60,10 +58,14 @@ parser.add_argument('--circle', required=False, metavar=("RADIUS"),
 parser.add_argument('--refresh', '-r',type=int,
                     required=False, default=50,
                     dest='refresh', help="Refresh rate")
+parser.add_argument('--verbose', '-v', action="store_true",
+                    required=False, 
+                    help="Enable output")
+
 args=parser.parse_args()
 freq=int(args.sinus[0])
 amp=int(args.sinus[1])
-print args
+
 if args.do_hash : print 'Using hash algorithm...'
 if args.BFECC : print 'Using BFECC method...'
 else: print 'No BFECC...'
@@ -643,15 +645,16 @@ for niter in xrange(nitermax):
         TraceurGhostPoint(T)
 
     if (niter%args.refresh==0):
-        ###### logfile
-        sys.stdout.write(
-            '\niteration: %d -- %i %%\n'
-            '\n'
-            'total time     = %.2e\n'
-            '\n'
-            %(niter,
-              float(niter)/nitermax*100,
-             t))
+        if args.verbose :
+            ###### logfile
+            sys.stdout.write(
+                '\niteration: %d -- %i %%\n'
+                '\n'
+                'total time     = %.2e\n'
+                '\n'
+                %(niter,
+                  float(niter)/nitermax*100,
+                  t))
 
         param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
                "dx":dx, "dy":dy}
@@ -666,5 +669,6 @@ for niter in xrange(nitermax):
         else:
             ploter(param)
 
-
-
+if args.parallel or args.max_parallel:
+    print "Waitng the end of the threads"
+    [w() for n,w in j]          
