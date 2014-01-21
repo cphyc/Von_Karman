@@ -63,6 +63,10 @@ parser.add_argument('--verbose', '-v', action="store_true",
                     help="Enable output")
 parser.add_argument('--movie', '-m', required=False, action="store_true",
                     help="The output is now a sequence of pictures")
+parser.add_argument('--alpha', required=False, default=1000.,
+                    help="Absorption coefficient in the obstacle")
+parser.add_argument('--niter', required=False, type=int, default=10000,
+                    help="Number of iterations (def: 10000)")
 
 args=parser.parse_args()
 freq=int(args.sinus[0])
@@ -353,7 +357,7 @@ def grad():
 
 def DeltaY(t,amp,freq):
     return numpy.trunc(
-        amp*numpy.sin(numpy.pi*2*freq*t))
+        amp*numpy.sin(2*numpy.pi*freq*t))
 
 
 def jacobienneH(ox1,ox2,oy):
@@ -568,7 +572,7 @@ u0 = 10
 
 ###### PARAMÈTRE DE BOUCLE
 ### Nombre d'iterations
-nitermax = int(10000)
+nitermax = int(args.niter)
 
 ##### Valeurs initiales des vitesses
 u = numpy.zeros((NY,NX))+u0
@@ -583,6 +587,8 @@ if use_tracer > 0:
 ####################
 ###### COEF POUR ADIM
 
+### Coefficient d'atténuation sur l'obstacle
+alpha = float(args.alpha)
 ### Coef du Laplacien de la vitesse
 DeltaU = float(1/Re)
 
@@ -643,6 +649,7 @@ if args.parallel or args.max_parallel:
     j=[]
     for i in xrange(int(args.nprocess)):
         j.append((0,lambda:0))
+
 # On initialise le tableau des temps et des drags
 drags = []
 times = []
@@ -676,9 +683,12 @@ for niter in xrange(nitermax):
              'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
              }
     if args.max_parallel:
-        ResuP = jober.submit(lets_advect, (u, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        ResvP = jober.submit(lets_advect, (v, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        TP = jober.submit(lets_advect, (T, args.BFECC, param, ), (Advect,VelocityObstacle),("numpy",))
+        ResuP = jober.submit(lets_advect, (u, args.BFECC, param),
+                             (Advect, VelocityObstacle, DeltaY),("numpy",))
+        ResvP = jober.submit(lets_advect, (v, args.BFECC, param),
+                             (Advect, VelocityObstacle, DeltaY),("numpy",))
+        TP = jober.submit(lets_advect, (T, args.BFECC, param, ),
+                          (Advect, VelocityObstacle, DeltaY),("numpy",))
         Resu = ResuP()
         Resv = ResvP()
         T = TP()
