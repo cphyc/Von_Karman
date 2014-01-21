@@ -12,61 +12,61 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
-                    help = 'Use a hash method for speed improvements',
+                    help = 'Experimental : use a hash method for speed improvements (default : false)',
                     dest='do_hash', default=False)
 parser.add_argument('--hash-size', required=False, default=30, 
                     dest='max_hash_size', nargs="?",
-                    help='Control the size of the stack for the hash')
+                    help='Control the size of the stack for the hash (default : 30)')
 parser.add_argument('--BFECC', '-b', required=False, action='store_true',
-                    help='Use the BFECC method for better simulation',
+                    help='Use the BFECC method for better simulation (default : false)',
                     default=False)
 parser.add_argument('--tracer', '-t', required=False, type=float, default=10,
-                    dest='tracers', help='Use TRACER tracers, default:10')
-parser.add_argument('--Re', required=False, default=float(1e15),
-                    dest='re',help="Reynold's number, default:1e15")
-parser.add_argument('--nx', required=False, type=int, default=300,
-                    help="Grid size in the x direction")
-parser.add_argument('--ny', required=False, type=int, default=100,
-                    help="Grid size in the y direction")
+                    dest='tracers', help='Use TRACER tracers (default : 10)')
+parser.add_argument('--Re', required=False, default=float(1e8),
+                    dest='re',help="Reynold's number, (default : 1e8)")
+parser.add_argument('--nx', required=False, type=int, default=150,
+                    help="Grid size in the x direction (default : 150)")
+parser.add_argument('--ny', required=False, type=int, default=80,
+                    help="Grid size in the y direction (default : 80)")
+
 parser.add_argument('--ox', required=False, type=int, default=15,
                     help="Obstacle leftest position in the x direction")
 parser.add_argument('--behind', required=False, action='store_true',
-                    help="Tracers behind the obstacle")
+                    help="Tracers behind the obstacle (default : false)")
 parser.add_argument('--parallel', required=False, action='store_true',
-                    help="Use parallel processing for plotting")
+                    help="Use parallel processing for plotting (default : false)")
 parser.add_argument('--max_parallel', required=False, action='store_true',
-                    help="Use parallel processing for processing")
-parser.add_argument('--nprocess', required=False, type=int, default=5,
-                    help="Number of coprocessors to use")
+                    help="Use parallel processing for processing (default : false)")
+parser.add_argument('--nprocess', required=False, type=int, default=4,
+                    help="Number of coprocessors to use (default : 4)")
 parser.add_argument('--out', required=False, default="out")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
-                    dest="colWidth", help="Size of the tracers")
+                    dest="colWidth", help="Size of the tracers (default : 1)")
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
-                    dest="assym", help="Assymetry")
+                    dest="assym", help="Assymetry (default : None)")
 parser.add_argument('--speed', '-s', required=False, type=int,
-                    default=1, dest="speed", help="Speed at the left")
+                    default=5, dest="speed", help="Speed at the left (default : 5)")
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
-                    default=(0,0), dest="sinus", 
+                    default=(5,10), dest="sinus", 
                     metavar=('F','A'),
-                    help="Use a sinus at frequency F and amplitude A.")
+                    help="Use a sinus at frequency F and amplitude A (default : F=5, A=10)")
 parser.add_argument('--rect', required=False, nargs=2, metavar=("WIDTH", "HEIGHT"),
                     default=(40, 40), 
                     help="The obstacle is a rectangle of size WIDTH*HEIGHT (default : 40*40).")
 parser.add_argument('--circle', required=False, metavar=("RADIUS"),
-                    type=int, 
-                    help="The obstacle is a circle of radius RADIUS (default : 40) (overrides --rect option).")
+                    nargs='?', 
+                    help="The obstacle is a circle of radius RADIUS (default : 40) (overrides --rect option)")
 parser.add_argument('--refresh', '-r',type=int,
                     required=False, default=50,
-                    dest='refresh', help="Refresh rate")
+                    dest='refresh', help="Refresh rate (default : 50")
 parser.add_argument('--verbose', '-v', action="store_true",
-                    required=False, 
-                    help="Enable output")
+                    required=False, help="Enable verbose output (default : false)")
 parser.add_argument('--movie', '-m', required=False, action="store_true",
                     help="The output is now a sequence of pictures")
-parser.add_argument('--alpha', required=False, default=1000.,
+parser.add_argument('--alpha', required=False, default=1000., type=float,
                     help="Absorption coefficient in the obstacle")
 parser.add_argument('--niter', required=False, type=int, default=10000,
-                    help="Number of iterations (def: 10000)")
+                    help="Number of iterations (def: 10.000)")
 
 args=parser.parse_args()
 freq=int(args.sinus[0])
@@ -88,7 +88,16 @@ else:
 if args.do_hash:
     hashtbl = dict()
     h = 0
+    
+# Liste des taches
+if args.parallel or args.max_parallel:
+    import pp
+    jober = pp.Server()
+    j=[]
+    for i in xrange(int(args.nprocess)):
+        j.append((0,lambda:0))
 
+        
 ###### affichage graphique
 # import matplotlib.pyplot as plt
 # if 'qt' in plt.get_backend().lower():
@@ -130,9 +139,16 @@ def CFL_explicite():
                                  dt_DeltaU_y)
     return dt_cfl
 
+# Calcule au (resp. av) et 1. - au
+def A(field, dt, dx):
+    rep = abs(field[1:-1,1:-1]) * dt / dx
+    return (rep, 1. - rep)
 
+def M(field, _) :
+    M = numpy.sign(numpy.sign(field[1:-1,1:-1]) + 1.)
+    return (1. - M, M)
 ####
-def Advect(u, v, p, param):
+def Advect(u, v, p):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
@@ -144,11 +160,6 @@ def Advect(u, v, p, param):
     Retourne le champ de vecteur advecté.
 
     """
-    args=param['args']
-    dx=param["dx"]
-    dy=param['dy']
-    dt=param['dt']
-    u,v = param['u'], param['v']
     def check_hash () :
         """ Retourne un booléen si h est dans la hashtbl """
         global hashtbl, h
@@ -177,24 +188,58 @@ def Advect(u, v, p, param):
         # On n'a pas encore calculé, on le fait donc
         # Matrice avec des 1 quand on va a droite, 
         # 0 a gauche ou au centre
-        Mx2 = numpy.sign(numpy.sign(u[1:-1,1:-1]) + 1.)
-        Mx1 = 1. - Mx2
+        if args.max_parallel:
 
-        # Matrice avec des 1 quand on va en haut, 
-        # 0 en bas ou au centre
-        My2 = numpy.sign(numpy.sign(v[1:-1,1:-1]) + 1.)
-        My1 = 1. - My2
+            # On lance le calcul de au puis av
+            ratio = dt/dx
 
-        # Matrices en valeurs absolues pour u et v
-        au = abs(u[1:-1,1:-1]) * dt/dx 
-        av = abs(v[1:-1,1:-1]) * dt/dy
+            auJob = jober.submit(A, (u, dt, dx), modules=("numpy",))
+            avJob = jober.submit(A, (v, dt, dy), modules=("numpy",))
 
-        # Matrices des coefficients respectivement 
-        # central, exterieur, meme x, meme y     
-        Cc = (1. - au) * (1. - av) 
-        Ce = au * av
-        Cmx = (1. - au) * av
-        Cmy = (1. - av) * au
+            # On lance le calcul de Mx et My
+            MxJob = jober.submit(M, (u, False), modules=("numpy",))
+            MyJob = jober.submit(M, (v, False), modules=("numpy",))
+
+            # On récupère au et 1 - au (resp. av et 1 - av)
+            au, au_1 = auJob()
+            av, av_1 = avJob()
+
+            Cc = au_1 * av_1
+            Ce = au * av
+            Cmx = au_1 * av
+            Cmy = av_1 * au
+
+            # On récupère Mx et My
+            Mx1, Mx2 = MxJob()
+            My1, My2 = MyJob()
+
+        else:
+            Mx1, Mx2 = M(u, False)            
+            My1, My2 = M(v, False)
+            au, au_1 = A(u, dt, dx)
+            av, av_1 = A(v, dt, dy)
+        
+            # Mx2 = numpy.sign(numpy.sign(u[1:-1,1:-1]) + 1.)
+            # Mx1 = 1. - Mx2
+
+            # # Matrice avec des 1 quand on va en haut, 
+            # # 0 en bas ou au centre
+            # My2 = numpy.sign(numpy.sign(v[1:-1,1:-1]) + 1.)
+            # My1 = 1. - My2
+
+            # # Matrices en valeurs absolues pour u et v
+            # au = abs(u[1:-1,1:-1]) * dt/dx 
+            # av = abs(v[1:-1,1:-1]) * dt/dy
+
+            # au_1 = 1. - au
+            # av_1 = 1. - av
+            
+            # Matrices des coefficients respectivement 
+            # central, exterieur, meme x, meme y     
+            Cc = (au_1) * (av_1) 
+            Ce = au * av
+            Cmx = (1. - au) * av
+            Cmy = (1. - av) * au
 
         # On stocke dans la table de hashage
         if args.do_hash :
@@ -386,7 +431,7 @@ def Drag(t):
     Calcule traînée sur l'obstacle rectangulaire en calculant la circulation de sigma sur un contour situé à 2points de l'obstacle
     """
     try:
-        r = int(args.circle)
+        r = float(args.circle)
         Lcont = 2*r
     except:
         ds = args.rect
@@ -464,18 +509,12 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ls, t, param, speed):
+def VelocityObstacle(ls, t, speed):
     """
     on impose une vitesse nulle sur le carré
     """
-    args=param['args']
-    freq=param['freq']
-    amp=param['amp']
-    dx, dy = param["dx"], param["dy"]
-    NX, NY = param["NX"], param["NY"]
     deltay = DeltaY(t,amp,freq)
-    alpha = param['args'].alpha
-    dt = param["dt"]
+
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
@@ -486,7 +525,7 @@ def VelocityObstacle(ls, t, param, speed):
             for y in xrange(-ym, ym+1):
                 yabs = y+oy
                 for el,s in zip(ls,speed):
-                    el[yabs, xabs] = s+(el[yabs,xabs]-s)*numpy.exp(-alpha*dt)
+                    el[yabs, xabs] = s+(el[yabs,xabs]-s)*numpy.exp(-args.alpha*dt)
     except TypeError : # Si on a un rectangle
         ds = args.rect
         dx=float(ds[0])
@@ -498,7 +537,7 @@ def VelocityObstacle(ls, t, param, speed):
         x2 = x1 + dx
         arr = numpy.ones((dx, dy))
         for el,s in zip(ls,speed):
-            el[y1:y2, x1:x2] = arr*s + (el[y1:y2, x1:x2]-arr*s)*numpy.exp(-alpha*dt)
+            el[y1:y2, x1:x2] = arr*s + (el[y1:y2, x1:x2]-arr*s)*numpy.exp(-args.alpha*dt)
             
 def ploter(param, drags, times):
     import matplotlib.pyplot as plt
@@ -595,8 +634,6 @@ if use_tracer > 0:
 ####################
 ###### COEF POUR ADIM
 
-### Coefficient d'atténuation sur l'obstacle
-alpha = float(args.alpha)
 ### Coef du Laplacien de la vitesse
 DeltaU = float(1/Re)
 
@@ -650,14 +687,6 @@ dt_exp = CFL_explicite()
 ################
 ###### MAIN LOOP 
 
-# Liste des taches. Par défaut, on met 4 fonctions qui renvoient 0
-if args.parallel or args.max_parallel:
-    import pp
-    jober = pp.Server()
-    j=[]
-    for i in xrange(int(args.nprocess)):
-        j.append((0,lambda:0))
-
 # On initialise le tableau des temps et des drags
 drags = []
 times = []
@@ -677,39 +706,37 @@ for niter in xrange(nitermax):
     vobs =  amp*freq*numpy.cos(numpy.pi*2*freq*t)
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
-    def lets_advect(p, BFECC, param, speeds):
-        t=param['t']
-        u,v=param['u'], param['v']
+    def lets_advect(p, BFECC, speeds):
         if BFECC :
-            p3 = Advect(u, v, p, param)          
-            p2 = Advect(-u, -v, p3, param)
-            p1 = Advect(u, v, p + 1./4*(p - p2), param)
-            VelocityObstacle(p1,t, param, speeds)
+            p3 = Advect(u, v, p)          
+            p2 = Advect(-u, -v, p3)
+            prect = p +1./4*numpy.subtract(p,p2)
+            p1 = Advect(u, v, prect)
+            VelocityObstacle(p1, t, speeds)
             return p1
         else :
-            p = Advect(u, v, p, param)
-            VelocityObstacle(p,t, param, speeds)
+            p = Advect(u, v, p)
+            VelocityObstacle(p,t, speeds)
             return p
         
-    param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
-             'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
-             }
-    if args.max_parallel:
-        ResuP = jober.submit(lets_advect, ([u], args.BFECC, param, [uobs]),
-                              (Advect,VelocityObstacle, DeltaY),("numpy",))
-        ResvP = jober.submit(lets_advect, ([v], args.BFECC, param, [vobs]),
-                              (Advect,VelocityObstacle, DeltaY),("numpy",))
-        TP = jober.submit(lets_advect, ([T], args.BFECC, param, [0]),
-                           (Advect,VelocityObstacle, DeltaY),("numpy",))
-        Resu = ResuP()
-        Resv = ResvP()
-        T = TP()
-    else:
-        Resu,Resv,T = lets_advect([u,v,T], args.BFECC, param, [uobs,vobs,0])
+    # param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
+    #          'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
+    #          }
+    # if args.max_parallel:
+    #     ResuP = jober.submit(lets_advect, ([u], args.BFECC, param, [uobs]),
+    #                           (Advect,VelocityObstacle, DeltaY),("numpy",))
+    #     ResvP = jober.submit(lets_advect, ([v], args.BFECC, param, [vobs]),
+    #                           (Advect,VelocityObstacle, DeltaY),("numpy",))
+    #     TP = jober.submit(lets_advect, ([T], args.BFECC, param, [0]),
+    #                        (Advect,VelocityObstacle, DeltaY),("numpy",))
+    #     [Resu] = ResuP()
+    #     [Resv] = ResvP()
+    #     [T] = TP()
+    # else:
+    Resu,Resv,T = lets_advect([u,v,T], args.BFECC, [uobs,vobs,0])
 
 
     ###### Etape de diffusion
-
     ustar = Resu + dt*DeltaU*Laplacien(u) 
     vstar = Resv + dt*DeltaU*Laplacien(v) 
 
@@ -717,7 +744,7 @@ for niter in xrange(nitermax):
     ###### on impose sur ustar/vstar Att:ghost points
 
     ###### Réctification de ustar et vstar pour avoir une vitesse nulle
-    VelocityObstacle([ustar,vstar],t, param, [uobs,vobs])
+    VelocityObstacle([ustar,vstar], t, [uobs,vobs])
     ###### END Conditions aux limites
 
     ###### Etape de projection
@@ -779,11 +806,12 @@ for niter in xrange(nitermax):
             # On récupère et supprime le 1er él,
             # et on attend la fin de son exécution
             niter0, wait_next = j.pop(0)
-            print "We're at ",niter,". Waiting for the end of :", niter0
+            if args.verbose:
+                print "We're at ",niter,". Waiting for the end of :", niter0
             wait_next()
         else:
             ploter(param, drags, times)
 
 if args.parallel or args.max_parallel:
-    print "Waitng the end of the threads"
+    print "Waiting the end of the threads"
     [w() for n,w in j]          
