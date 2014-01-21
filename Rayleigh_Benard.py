@@ -391,7 +391,11 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ls,t, param):
+def DeltaY(t):
+    return numpy.trunc(
+        amp*numpy.sin(numpy.pi*2*freq*t))
+
+def VelocityObstacle(ls, t, param):
     """
     on impose une vitesse nulle sur le carré
     """
@@ -400,8 +404,7 @@ def VelocityObstacle(ls,t, param):
     amp=param['amp']
     dx, dy = param["dx"], param["dy"]
     NX, NY = param["NX"], param["NY"]
-    deltay = numpy.trunc(
-        amp*numpy.sin(numpy.pi*2*freq*t))
+    deltay = DeltaY(t)
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
