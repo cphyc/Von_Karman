@@ -371,9 +371,8 @@ def jacobienneV(oy1,oy2,ox):
     
     return JV
     
-def Drag():    
+def Drag(t):    
     """
-
     Calcule traînée sur l'obstacle rectangulaire en calculant la circulation de sigma sur un contour situé à 2points de l'obstacle
     """
     try:
@@ -385,29 +384,32 @@ def Drag():
         dy = float(ds[1])
         Lcont = max(dx,dy)
         
-        
     ox = args.ox
     oy = (NY-dy)/2
-    deltay = 0    
+    deltay = DeltaY(t)
     
-    J1= jacobienneV(oy+deltay-2,oy+Lcont+1,ox-2) 
-    J2= jacobienneH(ox-2,ox+Lcont+1,oy+dy+2)
-    J3= jacobienneV(oy+deltay -1,oy+Lcont+2,ox+dx+2)
-    J4= jacobienneH(ox-1,ox+Lcont+2,oy-2)
+    J1= jacobienneV(oy+deltay-2, oy+deltay+Lcont+1, ox-2) 
+    J2= jacobienneH(ox-2, ox+Lcont+1, oy+deltay+Lcont+2)
+    J3= jacobienneV(oy+deltay -1, oy+deltay+Lcont+2, ox+dx+2)
+    J4= jacobienneH(ox-1, ox+Lcont+2, oy+deltay-2)
     
     #Left : on calcule sigma*ds.ex sur la gauche
-    sigma1 = -dy*(-phi[oy+deltay-2:oy+Lcont+1,ox-2]+2*Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
+    sigma1 = -dy*(-phi[oy+deltay-2:oy+deltay+Lcont+1, ox-2]
+                  + 2./Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
     
     #top
-    sigma2 = dx*(-phi[oy+deltay+Lcont+2,ox-2:ox+Lcont+1]+Re*(J2[1,0,:]+J2[0,1,:]))  # pareil pas le troisième coin
+    sigma2 = dx*(-phi[oy+deltay+Lcont+2, ox-2:ox+Lcont+1]
+                 + 1./Re*(J2[1,0,:]+J2[0,1,:]))  # pareil pas le troisième coin
     
     #right
-    sigma3 = dy*(-phi[oy-1:oy+Lcont+2,ox+Lcont+2]+2*Re*J3[0,0,:])
+    sigma3 = dy*(-phi[oy+deltay-1:oy+deltay+Lcont+2, ox+Lcont+2]
+                 + 2./Re*J3[0,0,:])
     
     #bottom
-    sigma4 = -dx*(-phi[oy-2,ox-1:ox+Lcont+2]+Re*(J4[1,0,:]+J4[0,1,:]))
+    sigma4 = -dx*(-phi[oy+deltay-2, ox-1:ox+Lcont+2]
+                  + 1./Re*(J4[1,0,:]+J4[0,1,:]))
     
-    return sum(sigma1)+sum(sigma2)+sum(sigma3)+sum(sigma4)
+    return sigma1.sum() + sigma2.sum() + sigma3.sum() + sigma4.sum()
        
 ###
 def VelocityGhostPoints(u,v):
@@ -661,7 +663,7 @@ for niter in xrange(nitermax):
     if args.max_parallel:
         ResuP = jober.submit(lets_advect, (u, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
         ResvP = jober.submit(lets_advect, (v, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        TP = jober.submit(lets_advect, (T, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
+        TP = jober.submit(lets_advect, (T, args.BFECC, param, ), (Advect,VelocityObstacle),("numpy",))
         Resu = ResuP()
         Resv = ResvP()
         T = TP()
@@ -735,7 +737,7 @@ for niter in xrange(nitermax):
                 '\n'
                 %(niter,
                   float(niter)/nitermax*100,
-                  t,Drag()))
+                  t,Drag(t)))
                   
         
 
@@ -743,7 +745,7 @@ for niter in xrange(nitermax):
                "dx":dx, "dy":dy, "niter":niter}
         if args.parallel or args.max_parallel:
             j.append((niter,
-                    jober.submit(ploter,(param,),(),("matplotlib.pyplot",) )))
+                    jober.submit(ploter,(param,),(DeltaY,),("matplotlib.pyplot",) )))
             # On récupère et supprime le 1er él,
             # et on attend la fin de son exécution
             niter0, wait_next = j.pop(0)
