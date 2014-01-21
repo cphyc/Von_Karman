@@ -351,6 +351,9 @@ def grad():
     gradphix[:, 1:-1] = (phi[:, 2:] - phi[:, :-2])/dx/2
     gradphiy[1:-1, :] = (phi[2:, :] - phi[:-2, :])/dy/2
 
+def DeltaY(t,amp,freq):
+    return numpy.trunc(
+        amp*numpy.sin(numpy.pi*2*freq*t))
 
 
 def jacobienneH(ox1,ox2,oy):
@@ -383,30 +386,34 @@ def Drag(t):
         dx = float(ds[0])
         dy = float(ds[1])
         Lcont = max(dx,dy)
-        
+
+    # On récupère l'amplitude
+    tmp,_ = args.sinus
+    amp = int(tmp) + 3
+    
     ox = args.ox
     oy = (NY-dy)/2
-    deltay = DeltaY(t)
+    deltay = DeltaY(t,amp,freq)
     
-    J1= jacobienneV(oy+deltay-2, oy+deltay+Lcont+1, ox-2) 
-    J2= jacobienneH(ox-2, ox+Lcont+1, oy+deltay+Lcont+2)
-    J3= jacobienneV(oy+deltay -1, oy+deltay+Lcont+2, ox+dx+2)
-    J4= jacobienneH(ox-1, ox+Lcont+2, oy+deltay-2)
+    J1= jacobienneV(oy-amp, oy+amp+Lcont-1, ox-2) 
+    J2= jacobienneH(ox-2, ox+Lcont+1, oy+amp+Lcont)
+    J3= jacobienneV(oy-amp +1, oy+amp+Lcont, ox+dx+2)
+    J4= jacobienneH(ox-1, ox+Lcont+2, oy-amp)
     
     #Left : on calcule sigma*ds.ex sur la gauche
-    sigma1 = -dy*(-phi[oy+deltay-2:oy+deltay+Lcont+1, ox-2]
+    sigma1 = -dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
                   + 2./Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
     
     #top
-    sigma2 = dx*(-phi[oy+deltay+Lcont+2, ox-2:ox+Lcont+1]
+    sigma2 = dx*(-phi[oy+amp+Lcont-1, ox-2:ox+Lcont+1]
                  + 1./Re*(J2[1,0,:]+J2[0,1,:]))  # pareil pas le troisième coin
     
     #right
-    sigma3 = dy*(-phi[oy+deltay-1:oy+deltay+Lcont+2, ox+Lcont+2]
+    sigma3 = dy*(-phi[oy-amp+1:oy+amp+Lcont, ox+Lcont+2]
                  + 2./Re*J3[0,0,:])
     
     #bottom
-    sigma4 = -dx*(-phi[oy+deltay-2, ox-1:ox+Lcont+2]
+    sigma4 = -dx*(-phi[oy-amp, ox-1:ox+Lcont+2]
                   + 1./Re*(J4[1,0,:]+J4[0,1,:]))
     
     return sigma1.sum() + sigma2.sum() + sigma3.sum() + sigma4.sum()
@@ -450,10 +457,6 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def DeltaY(t):
-    return numpy.trunc(
-        amp*numpy.sin(numpy.pi*2*freq*t))
-
 def VelocityObstacle(ls, t, param):
     """
     on impose une vitesse nulle sur le carré
@@ -463,7 +466,7 @@ def VelocityObstacle(ls, t, param):
     amp=param['amp']
     dx, dy = param["dx"], param["dy"]
     NX, NY = param["NX"], param["NY"]
-    deltay = DeltaY(t)
+    deltay = DeltaY(t,amp,freq)
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
@@ -487,7 +490,7 @@ def VelocityObstacle(ls, t, param):
         for el in ls:
             el[y1:y2, x1:x2] = 0
             
-def ploter(param):
+def ploter(param, drags, times):
     import matplotlib.pyplot as plt
     # plt.ion()
     args = param['args']
@@ -499,7 +502,11 @@ def ploter(param):
     plt.title(plotlabel)
     #plt.imshow(numpy.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
     #plt.imshow(u[1:-1, 1:-1], origin="lower")
-    plt.imshow(T[1:-1, 1:-1], vmin=0.7, vmax=1,figure=0)
+    if args.behind:
+        vmi = 0.7
+    else:
+        vmi = 0
+    plt.imshow(T[1:-1, 1:-1], vmin=vmi, vmax=1,figure=0)
     # plt.ioff()
     # plt.plot(T[50,1:-1],hold=False)
     #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
@@ -511,6 +518,7 @@ def ploter(param):
     #plt.plot(vstar[75,:])
     #plt.plot(Resv[75,:])
     #plt.plot(u[,:])
+    # On sauvegarde dans une liste drags et times
     if args.movie:
         if args.verbose:
             print "Saving image number " + str(param['niter'])
@@ -518,6 +526,10 @@ def ploter(param):
     else:
         out_name = args.out + ".png"
     plt.savefig(out_name)
+    plt.clf()
+    plt.plot(times[1:],drags[1:])
+    plt.axis('auto')
+    plt.savefig("drag.png")
 
     ###### Gael's tricks interactif
     # if 'qt' in plt.get_backend().lower():
@@ -631,7 +643,10 @@ if args.parallel or args.max_parallel:
     j=[]
     for i in xrange(int(args.nprocess)):
         j.append((0,lambda:0))
-        
+# On initialise le tableau des temps et des drags
+drags = []
+times = []
+
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
@@ -723,7 +738,11 @@ for niter in xrange(nitermax):
     VelocityGhostPoints(u,v)
     if use_tracer :
         TraceurGhostPoint(T)
-
+    # On met à jour les drags et le temps pour faire le suivi
+    drag = Drag(t)
+    drags += [drag]
+    times += [t]
+    
     if (niter%args.refresh==0):
         if args.verbose :
             
@@ -737,7 +756,7 @@ for niter in xrange(nitermax):
                 '\n'
                 %(niter,
                   float(niter)/nitermax*100,
-                  t,Drag(t)))
+                  t,drag))
                   
         
 
@@ -745,14 +764,15 @@ for niter in xrange(nitermax):
                "dx":dx, "dy":dy, "niter":niter}
         if args.parallel or args.max_parallel:
             j.append((niter,
-                    jober.submit(ploter,(param,),(DeltaY,),("matplotlib.pyplot",) )))
+                    jober.submit(ploter,(param, drags, times),(DeltaY,)
+                                 ,("matplotlib.pyplot",) )))
             # On récupère et supprime le 1er él,
             # et on attend la fin de son exécution
             niter0, wait_next = j.pop(0)
             print "We're at ",niter,". Waiting for the end of :", niter0
             wait_next()
         else:
-            ploter(param)
+            ploter(param, drags, times)
 
 if args.parallel or args.max_parallel:
     print "Waitng the end of the threads"
