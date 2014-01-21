@@ -38,7 +38,7 @@ parser.add_argument('--max_parallel', required=False, action='store_true',
                     help="Use parallel processing for processing")
 parser.add_argument('--nprocess', required=False, type=int, default=5,
                     help="Number of coprocessors to use")
-parser.add_argument('--out', required=False, default="test.png")
+parser.add_argument('--out', required=False, default="out")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
                     dest="colWidth", help="Size of the tracers")
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
@@ -61,6 +61,8 @@ parser.add_argument('--refresh', '-r',type=int,
 parser.add_argument('--verbose', '-v', action="store_true",
                     required=False, 
                     help="Enable output")
+parser.add_argument('--movie', '-m', required=False, action="store_true",
+                    help="The output is now a sequence of pictures")
 
 args=parser.parse_args()
 freq=int(args.sinus[0])
@@ -435,7 +437,7 @@ def ploter(param):
     plt.title(plotlabel)
     #plt.imshow(numpy.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
     #plt.imshow(u[1:-1, 1:-1], origin="lower")
-    plt.imshow(T[1:-1, 1:-1], vmin=0, vmax=1,figure=0)
+    plt.imshow(T[1:-1, 1:-1], vmin=0.7, vmax=1,figure=0)
     # plt.ioff()
     # plt.plot(T[50,1:-1],hold=False)
     #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
@@ -447,7 +449,13 @@ def ploter(param):
     #plt.plot(vstar[75,:])
     #plt.plot(Resv[75,:])
     #plt.plot(u[,:])
-    plt.savefig(args.out)
+    if args.movie:
+        if args.verbose:
+            print "Saving image number " + str(param['niter'])
+            out_name = args.out + "_" + str(param['niter']) + ".png"
+    else:
+        out_name = args.out + ".png"
+    plt.savefig(out_name)
 
     ###### Gael's tricks interactif
     # if 'qt' in plt.get_backend().lower():
@@ -492,7 +500,11 @@ nitermax = int(10000)
 u = numpy.zeros((NY,NX))+u0
 v = numpy.zeros((NY,NX))
 if use_tracer > 0:
-    T = numpy.zeros((NY,NX))
+    if args.behind:
+        T = numpy.ones((NY,NX))
+    else:
+        T = numpy.zeros((NY,NX))
+        
 
 ####################
 ###### COEF POUR ADIM
@@ -575,7 +587,7 @@ for niter in xrange(nitermax):
         if BFECC :
             p3 = Advect(u, v, p, param)          
             p2 = Advect(-u, -v, p3, param)
-            p1 = Advect(u, v, p + 1./3*(p - p2), param)
+            p1 = Advect(u, v, p + 1./4*(p - p2), param)
             VelocityObstacle([p1],t,param)
             return p1
         else :
@@ -584,7 +596,8 @@ for niter in xrange(nitermax):
             return p
         
     param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
-             'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY}
+             'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
+             }
     if args.max_parallel:
         ResuP = jober.submit(lets_advect, (u, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
         ResvP = jober.submit(lets_advect, (v, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
@@ -659,7 +672,7 @@ for niter in xrange(nitermax):
                   t))
 
         param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
-               "dx":dx, "dy":dy}
+               "dx":dx, "dy":dy, "niter":niter}
         if args.parallel or args.max_parallel:
             j.append((niter,
                     jober.submit(ploter,(param,),(),("matplotlib.pyplot",) )))
