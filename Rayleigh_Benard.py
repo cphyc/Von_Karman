@@ -132,7 +132,7 @@ def CFL_explicite():
 
 
 ####
-def Advect(u, v, col,param):
+def Advect(u, v, p, param):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
@@ -199,20 +199,23 @@ def Advect(u, v, col,param):
         # On stocke dans la table de hashage
         if args.do_hash :
             hashtbl[h] = [Mx1, Mx2, My1, My2, au, av, Cc, Ce, Cmx, Cmy]
-
-    # on copie le tableau d'entrée l dans res
-    res = col.copy()
-    # Calcul des matrices de resultat : on part de l[i] et on arrive dans res[i] 
-    res[1:-1,1:-1] = (Cc * col[1:-1, 1:-1] +            
-                      Ce * (Mx1*My1 * col[2:, 2:] + 
-                            Mx1*My2 * col[:-2, 2:] +
-                            Mx2*My1 * col[2:, :-2] +
-                            Mx2*My2 * col[:-2, :-2]) +  
-                      Cmx * (My1 * col[2:, 1:-1] +
-                             My2 * col[:-2, 1:-1]) +   
-                      Cmy * (Mx1 * col[1:-1, 2:] +
-                             Mx2 * col[1:-1, :-2]))
-    return res
+    # p est une liste de champs
+    result = []
+    for field in p:
+        # on copie le tableau d'entrée l dans res
+        res = field.copy()
+        # Calcul des matrices de resultat: on part de l[i] et on arrive dans res[i] 
+        res[1:-1,1:-1] = (Cc * field[1:-1, 1:-1] +            
+                        Ce * (Mx1*My1 * field[2:, 2:] + 
+                                Mx1*My2 * field[:-2, 2:] +
+                                Mx2*My1 * field[2:, :-2] +
+                                Mx2*My2 * field[:-2, :-2]) +  
+                        Cmx * (My1 * field[2:, 1:-1] +
+                               My2 * field[:-2, 1:-1]) +   
+                        Cmy * (Mx1 * field[1:-1, 2:] +
+                                Mx2 * field[1:-1, :-2]))
+        result.append(res)
+    return result
 
 def BuildLaPoisson():
     """
@@ -674,29 +677,29 @@ for niter in xrange(nitermax):
     vobs =  amp*freq*numpy.cos(numpy.pi*2*freq*t)
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
-    def lets_advect(p, BFECC, param,speed):
+    def lets_advect(p, BFECC, param, speeds):
         t=param['t']
         u,v=param['u'], param['v']
         if BFECC :
             p3 = Advect(u, v, p, param)          
             p2 = Advect(-u, -v, p3, param)
             p1 = Advect(u, v, p + 1./4*(p - p2), param)
-            VelocityObstacle([p1],t, param, [speed])
+            VelocityObstacle(p1,t, param, speeds)
             return p1
         else :
             p = Advect(u, v, p, param)
-            VelocityObstacle([p],t, param, [speed])
+            VelocityObstacle(p,t, param, speeds)
             return p
         
     param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
              'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
              }
     if args.max_parallel:
-        ResuP = jober.submit(lets_advect, (u, args.BFECC, param, uobs),
+        ResuP = jober.submit(lets_advect, ([u], args.BFECC, param, [uobs]),
                               (Advect,VelocityObstacle, DeltaY),("numpy",))
-        ResvP = jober.submit(lets_advect, (v, args.BFECC, param, vobs),
+        ResvP = jober.submit(lets_advect, ([v], args.BFECC, param, [vobs]),
                               (Advect,VelocityObstacle, DeltaY),("numpy",))
-        TP = jober.submit(lets_advect, (T, args.BFECC, param, 0),
+        TP = jober.submit(lets_advect, ([T], args.BFECC, param, [0]),
                            (Advect,VelocityObstacle, DeltaY),("numpy",))
         Resu = ResuP()
         Resv = ResvP()
