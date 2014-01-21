@@ -351,6 +351,63 @@ def grad():
     gradphix[:, 1:-1] = (phi[:, 2:] - phi[:, :-2])/dx/2
     gradphiy[1:-1, :] = (phi[2:, :] - phi[:-2, :])/dy/2
 
+
+
+def jacobienneH(ox1,ox2,oy):
+    JH = numpy.zeros((2,2,ox2-ox1))
+    JH[0,0,:]=(u[oy, ox1+1:ox2+1] - u[oy, ox1-1:ox2-1])/dx/2
+    JH[1,0,:]=(u[oy+1, ox1:ox2] - u[oy-1, ox1:ox2])/dy/2
+    JH[0,1,:]=(v[oy, ox1+1:ox2+1] - v[oy, ox1-1:ox2-1])/dx/2
+    JH[1,1,:]=(v[oy+1, ox1:ox2] - v[oy-1, ox1:ox2])/dy/2
+    
+    return JH
+    
+def jacobienneV(oy1,oy2,ox):
+    JV = numpy.zeros((2,2,oy2-oy1))
+    JV[0,0,:]=(u[oy1:oy2, ox+1] - u[oy1:oy2, ox-1])/dx/2
+    JV[1,0,:]=(u[oy1+1:oy2+1, ox] - u[oy1-1:oy2-1, ox])/dy/2
+    JV[0,1,:]=(v[oy1:oy2, ox+1] - v[oy1:oy2, ox-1])/dx/2
+    JV[1,1,:]=(v[oy1+1:oy2+1, ox] - v[oy1-1:oy2-1, ox])/dy/2
+    
+    return JV
+    
+def Drag():    
+    """
+
+    Calcule traînée sur l'obstacle rectangulaire en calculant la circulation de sigma sur un contour situé à 2points de l'obstacle
+    """
+    try:
+        r = int(args.circle)
+        Lcont = 2*r
+    except:
+        ds = args.rect
+        dx = float(ds[0])
+        dy = float(ds[1])
+        Lcont = max(dx,dy)
+        
+        
+    ox = args.ox
+    oy = (NY-dy)/2
+    deltay = 0    
+    
+    J1= jacobienneV(oy+deltay-2,oy+Lcont+1,ox-2) 
+    J2= jacobienneH(ox-2,ox+Lcont+1,oy+dy+2)
+    J3= jacobienneV(oy+deltay -1,oy+Lcont+2,ox+dx+2)
+    J4= jacobienneH(ox-1,ox+Lcont+2,oy-2)
+    
+    #Left : on calcule sigma*ds.ex sur la gauche
+    sigma1 = -dy*(-phi[oy+deltay-2:oy+Lcont+1,ox-2]+2*Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
+    
+    #top
+    sigma2 = dx*(-phi[oy+deltay+Lcont+2,ox-2:ox+Lcont+1]+Re*(J2[1,0,:]+J2[0,1,:]))  # pareil pas le troisième coin
+    
+    #right
+    sigma3 = dy*(-phi[oy-1:oy+Lcont+2,ox+Lcont+2]+2*Re*J3[0,0,:])
+    
+    #bottom
+    sigma4 = -dx*(-phi[oy-2,ox-1:ox+Lcont+2]+Re*(J4[1,0,:]+J4[0,1,:]))
+    
+    return sum(sigma1)+sum(sigma2)+sum(sigma3)+sum(sigma4)
        
 ###
 def VelocityGhostPoints(u,v):
@@ -653,7 +710,10 @@ for niter in xrange(nitermax):
 
     u = ustar - gradphix
     v = vstar - gradphiy
+    
+    #### Calcul de la traînée
 
+    
     ###### Mise a jour des points fantomes
     VelocityGhostPoints(u,v)
     if use_tracer :
@@ -661,15 +721,20 @@ for niter in xrange(nitermax):
 
     if (niter%args.refresh==0):
         if args.verbose :
+            
             ###### logfile
             sys.stdout.write(
                 '\niteration: %d -- %i %%\n'
                 '\n'
                 'total time     = %.2e\n'
                 '\n'
+                'drag           = %.2e\n'
+                '\n'
                 %(niter,
                   float(niter)/nitermax*100,
-                  t))
+                  t,Drag()))
+                  
+        
 
         param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
                "dx":dx, "dy":dy, "niter":niter}
