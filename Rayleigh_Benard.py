@@ -457,7 +457,7 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ls, t, param):
+def VelocityObstacle(ls, t, param, speed):
     """
     on impose une vitesse nulle sur le carré
     """
@@ -467,6 +467,7 @@ def VelocityObstacle(ls, t, param):
     dx, dy = param["dx"], param["dy"]
     NX, NY = param["NX"], param["NY"]
     deltay = DeltaY(t,amp,freq)
+
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
@@ -476,8 +477,8 @@ def VelocityObstacle(ls, t, param):
             xabs = x+ox
             for y in xrange(-ym, ym+1):
                 yabs = y+oy
-                for el in ls:
-                    el[yabs, xabs] = 0
+                for el,s in zip(ls,speed):
+                    el[yabs, xabs] = s+(el[yabs,xabs]-s)*numpy.exp(-alpha*dt)
     except TypeError : # Si on a un rectangle
         ds = args.rect
         dx=float(ds[0])
@@ -487,8 +488,8 @@ def VelocityObstacle(ls, t, param):
         y2 = y1 + dy
         x1 = args.ox
         x2 = x1 + dx
-        for el in ls:
-            el[y1:y2, x1:x2] = 0
+        for el,s in zip(ls,s):
+            el[y1:y2, x1:x2] = s+(el[yabs,xabs]-s)*numpy.exp(-alpha*dt)
             
 def ploter(param, drags, times):
     import matplotlib.pyplot as plt
@@ -656,9 +657,13 @@ for niter in xrange(nitermax):
         dt = dt_new
     ### Avancement du temps total
     t += dt
+    
+    ### Calcul des vitesses de l'obstacle
+    uobs = 0    
+    vobs =  amp*freq*numpy.cos(numpy.pi*2*freq*t)
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
-    def lets_advect(p, BFECC, param):
+    def lets_advect(p, BFECC, param,speed):
         t=param['t']
         u,v=param['u'], param['v']
         if BFECC :
@@ -669,23 +674,23 @@ for niter in xrange(nitermax):
             return p1
         else :
             p = Advect(u, v, p, param)
-            VelocityObstacle([p],t, param)
+            VelocityObstacle([p],t, param,speed)
             return p
         
     param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
              'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
              }
     if args.max_parallel:
-        ResuP = jober.submit(lets_advect, (u, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        ResvP = jober.submit(lets_advect, (v, args.BFECC, param), (Advect,VelocityObstacle),("numpy",))
-        TP = jober.submit(lets_advect, (T, args.BFECC, param, ), (Advect,VelocityObstacle),("numpy",))
+        ResuP = jober.submit(lets_advect, (u, args.BFECC, param, uobs), (Advect,VelocityObstacle),("numpy",))
+        ResvP = jober.submit(lets_advect, (v, args.BFECC, param,vobs), (Advect,VelocityObstacle),("numpy",))
+        TP = jober.submit(lets_advect, (T, args.BFECC, param, 0 ), (Advect,VelocityObstacle),("numpy",))
         Resu = ResuP()
         Resv = ResvP()
         T = TP()
     else:
-        Resu = lets_advect(u, args.BFECC, param)
-        Resv = lets_advect(v, args.BFECC, param)
-        T = lets_advect(T, args.BFECC, param)
+        Resu = lets_advect(u, args.BFECC, param,uobs)
+        Resv = lets_advect(v, args.BFECC, param,vobs)
+        T = lets_advect(T, args.BFECC, param,0)
 
     ###### Etape de diffusion
 
@@ -694,20 +699,9 @@ for niter in xrange(nitermax):
 
     ###### Conditions aux limites Vitesse
     ###### on impose sur ustar/vstar Att:ghost points
-    ### left
-    ustar[:,  1] = u0
-    vstar[:,  1] = 0.0
-    ### right
-    ustar[:, -1] = ustar[:, -2]
-    vstar[:, -1] = vstar[:, -2]
-    ### top
-    ustar[-1, :] = 0.0
-    vstar[-1, :] = vstar[-2, :]
-    ### bottom
-    ustar[0,  :] = 0.0
-    vstar[0,  :] = vstar[1, :]
+
     ###### Réctification de ustar et vstar pour avoir une vitesse nulle
-    VelocityObstacle([ustar,vstar],t, param)
+    VelocityObstacle([ustar,vstar],t, param, [uobs,vobs])
     ###### END Conditions aux limites
 
     ###### Etape de projection
@@ -731,7 +725,6 @@ for niter in xrange(nitermax):
     u = ustar - gradphix
     v = vstar - gradphiy
     
-    #### Calcul de la traînée
 
     
     ###### Mise a jour des points fantomes
