@@ -471,7 +471,8 @@ def VelocityObstacle(ls, t, param, speed):
     dx, dy = param["dx"], param["dy"]
     NX, NY = param["NX"], param["NY"]
     deltay = DeltaY(t,amp,freq)
-
+    alpha = param['args'].alpha
+    dt = param["dt"]
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
@@ -520,7 +521,7 @@ def ploter(param, drags, times):
     #hold=False)
     x = args.nx
     y = args.ny
-    plt.axis([0,nx,0,ny])
+    plt.axis([-1,x,-1,y])
     # plt.draw()
     plt.grid()
     #plt.plot(vstar[75,:])
@@ -701,9 +702,8 @@ for niter in xrange(nitermax):
         Resv = ResvP()
         T = TP()
     else:
-        Resu = lets_advect(u, args.BFECC, param, uobs)
-        Resv = lets_advect(v, args.BFECC, param, vobs)
-        T = lets_advect(T, args.BFECC, param, 0)
+        Resu,Resv,T = lets_advect([u,v,T], args.BFECC, param, [uobs,vobs,0])
+
 
     ###### Etape de diffusion
 
@@ -768,8 +768,7 @@ for niter in xrange(nitermax):
         
 
         param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
-               "dx":dx, "dy":dy, "niter":niter}
-        print T.shape
+               "dx":dx, "dy":dy, "niter":niter, "dt":dt}
         if args.parallel or args.max_parallel:
             j.append((niter,
                     jober.submit(ploter,(param, drags, times),(DeltaY,)
