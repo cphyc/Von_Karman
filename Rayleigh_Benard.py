@@ -492,8 +492,9 @@ def VelocityObstacle(ls, t, param, speed):
         y2 = y1 + dy
         x1 = args.ox
         x2 = x1 + dx
-        for el,s in zip(ls,s):
-            el[y1:y2, x1:x2] = s+(el[yabs,xabs]-s)*numpy.exp(-alpha*dt)
+        arr = numpy.ones((dx, dy))
+        for el,s in zip(ls,speed):
+            el[y1:y2, x1:x2] = arr*s + (el[y1:y2, x1:x2]-arr*s)*numpy.exp(-alpha*dt)
             
 def ploter(param, drags, times):
     import matplotlib.pyplot as plt
@@ -517,7 +518,9 @@ def ploter(param, drags, times):
     #plt.quiver(u[::4, ::4],v[::4, ::4], units="dots", width=0.7, 
     #           scale_units="dots", scale=0.9,
     #hold=False)
-    plt.axis('image')
+    x = args.nx
+    y = args.ny
+    plt.axis([0,nx,0,ny])
     # plt.draw()
     plt.grid()
     #plt.plot(vstar[75,:])
@@ -677,27 +680,30 @@ for niter in xrange(nitermax):
             p3 = Advect(u, v, p, param)          
             p2 = Advect(-u, -v, p3, param)
             p1 = Advect(u, v, p + 1./4*(p - p2), param)
-            VelocityObstacle([p1],t,param)
+            VelocityObstacle([p1],t, param, [speed])
             return p1
         else :
             p = Advect(u, v, p, param)
-            VelocityObstacle([p],t, param,speed)
+            VelocityObstacle([p],t, param, [speed])
             return p
         
     param = {'args':args, 'u':u, 'v':v, 't':t, 'dt':dt,
              'dy':dy, 'dx':dx, 'freq':freq, 'amp':amp, 'NX':NX, 'NY':NY
              }
     if args.max_parallel:
-        ResuP = jober.submit(lets_advect, (u, args.BFECC, param, uobs), (Advect,VelocityObstacle),("numpy",))
-        ResvP = jober.submit(lets_advect, (v, args.BFECC, param, vobs), (Advect,VelocityObstacle),("numpy",))
-        TP = jober.submit(lets_advect, (T, args.BFECC, param, 0), (Advect,VelocityObstacle),("numpy",))
+        ResuP = jober.submit(lets_advect, (u, args.BFECC, param, uobs),
+                              (Advect,VelocityObstacle, DeltaY),("numpy",))
+        ResvP = jober.submit(lets_advect, (v, args.BFECC, param, vobs),
+                              (Advect,VelocityObstacle, DeltaY),("numpy",))
+        TP = jober.submit(lets_advect, (T, args.BFECC, param, 0),
+                           (Advect,VelocityObstacle, DeltaY),("numpy",))
         Resu = ResuP()
         Resv = ResvP()
         T = TP()
     else:
-        Resu = lets_advect(u, args.BFECC, param,uobs)
-        Resv = lets_advect(v, args.BFECC, param,vobs)
-        T = lets_advect(T, args.BFECC, param,0)
+        Resu = lets_advect(u, args.BFECC, param, uobs)
+        Resv = lets_advect(v, args.BFECC, param, vobs)
+        T = lets_advect(T, args.BFECC, param, 0)
 
     ###### Etape de diffusion
 
@@ -763,6 +769,7 @@ for niter in xrange(nitermax):
 
         param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
                "dx":dx, "dy":dy, "niter":niter}
+        print T.shape
         if args.parallel or args.max_parallel:
             j.append((niter,
                     jober.submit(ploter,(param, drags, times),(DeltaY,)
