@@ -39,13 +39,14 @@ parser.add_argument('--max_parallel', required=False, action='store_true',
                     help="Use parallel processing for processing (default : false)")
 parser.add_argument('--nprocess', required=False, type=int, default=4,
                     help="Number of coprocessors to use (default : 4)")
-parser.add_argument('--out', required=False, default="out")
+parser.add_argument('--out', required=False, type=str, default="out",
+                    help="Name of the file of the output (default 'out')")
 parser.add_argument('--tracer-size', required=False, type=int, default=1,
                     dest="colWidth", help="Size of the tracers (default : 1)")
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
                     dest="assym", help="Assymetry (default : None)")
 parser.add_argument('--speed', '-s', required=False, type=int,
-                    default=5, dest="speed", help="Speed at the left (default : 5)")
+                    default=1, dest="speed", help="Speed at the left (default : 1)")
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
                     default=(5,10), dest="sinus", 
                     metavar=('F','A'),
@@ -69,7 +70,7 @@ parser.add_argument('--niter', required=False, type=int, default=10000,
                     help="Number of iterations (def: 10.000)")
 
 args=parser.parse_args()
-freq=int(args.sinus[0])
+freq=float(args.sinus[0])
 amp=int(args.sinus[1])
 
 if args.do_hash : print 'Using hash algorithm...'
@@ -440,8 +441,8 @@ def Drag(t):
         Lcont = max(dx,dy)
 
     # On récupère l'amplitude
-    tmp,_ = args.sinus
-    amp = int(tmp) + 3
+    _, amp = args.sinus
+    amp = int(amp) + 3
     
     ox = args.ox
     oy = (NY-dy)/2
@@ -511,21 +512,24 @@ def PhiGhostPoints(phi):
 
 def VelocityObstacle(ls, t, speed):
     """
-    on impose une vitesse nulle sur le carré
+    on impose une égale à la vitesse de l'obstacle sur celui-ci
     """
-    deltay = DeltaY(t,amp,freq)
+    deltay = DeltaY(t, amp, freq)
 
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
         oy = NY/2 + deltay
+        # Bornes de x
         for x in xrange(-r,r+1):
             ym = int(numpy.sqrt(r**2 - x**2))
             xabs = x+ox
+            # Bornes de y (pour le cercle)
             for y in xrange(-ym, ym+1):
                 yabs = y+oy
-                for el,s in zip(ls,speed):
-                    el[yabs, xabs] = s+(el[yabs,xabs]-s)*numpy.exp(-args.alpha*dt)
+                for el,s in zip(ls,speed):                    
+                    # el[yabs, xabs] = s+(el[yabs,xabs]-s)*numpy.exp(-args.alpha*dt)
+                    el[yabs, xabs] = s
     except TypeError : # Si on a un rectangle
         ds = args.rect
         dx=float(ds[0])
@@ -535,9 +539,12 @@ def VelocityObstacle(ls, t, speed):
         y2 = y1 + dy
         x1 = args.ox
         x2 = x1 + dx
+        # Tableaux de la taille du carré, rempli de 1
         arr = numpy.ones((dx, dy))
         for el,s in zip(ls,speed):
-            el[y1:y2, x1:x2] = arr*s + (el[y1:y2, x1:x2]-arr*s)*numpy.exp(-args.alpha*dt)
+            speed_arr = arr*s
+            el[y1:y2, x1:x2] = speed_arr + (el[y1:y2, x1:x2]-speed_arr)*numpy.exp(-args.alpha*dt)
+            # el[y1:y2, x1:x2] = speed_arr
             
 def ploter(param, drags, times):
     import matplotlib.pyplot as plt
@@ -563,7 +570,7 @@ def ploter(param, drags, times):
     #hold=False)
     x = args.nx
     y = args.ny
-    plt.axis([-1,x,-1,y])
+    plt.axis([0,x,0,y])
     # plt.draw()
     plt.grid()
     #plt.plot(vstar[75,:])
@@ -702,8 +709,8 @@ for niter in xrange(nitermax):
     t += dt
     
     ### Calcul des vitesses de l'obstacle
-    uobs = 0    
-    vobs =  amp*freq*numpy.cos(numpy.pi*2*freq*t)
+    uobs = 0
+    vobs = numpy.pi*2*freq*amp*numpy.cos(numpy.pi*2*freq*t)
 
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
     def lets_advect(p, BFECC, speeds):
@@ -814,4 +821,4 @@ for niter in xrange(nitermax):
 
 if args.parallel or args.max_parallel:
     print "Waiting the end of the threads"
-    [w() for n,w in j]          
+    [w() for n,w in j]
