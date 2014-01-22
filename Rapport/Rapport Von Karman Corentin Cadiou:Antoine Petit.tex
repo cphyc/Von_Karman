@@ -27,7 +27,16 @@ Cours de physique numérique}
 
 	\subsection{Le calcul des champs de vitesses}
 		
-		Le champ de vitesse est calculé en plusieurs étapes. Tout d'abord on effectue une advection pure 
+		Le champ de vitesse est calculé en plusieurs étapes. Tout d'abord on effectue une advection pure au moyen du schéma \eqref{schema advection u} d'ordre 2 en espace. On note $(u,v)$ le champ de vitesse
+		
+		\begin{equation}
+			u_{i \ j}^{n+1} = u_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(u_{i+1 \ j}^n-u_{i-1 \ j}^n) + v_{i \ j}^{n}(u_{i \ j+1}^n-u_{i \ j-1}^n)) \\
+			\label{schema advection u}
+		\end{equation}
+		\[ 	v_{i \ j}^{n+1} = v_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(v_{i+1 \ j}^n-v_{i-1 \ j}^n) + v_{i \ j}^{n}(v_{i \ j+1}^n-v_{i \ j-1}^n))
+		\]
+		
+		
 		
 	\subsection{Les conditions aux limites}
 		
@@ -73,10 +82,10 @@ Cours de physique numérique}
 		\end{equation}
 		
 		Si on adimensionne \eqref{trainee} comme l'équation de Navier-Stokes \eqref{NS} on obtient :
-		\begin{align}
+		\begin{align*}
 			\sigma_{ij} 	& = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)\\
 						& = \rho U_0^2 \left( - \phi \delta_{ij} + \frac{\eta}{L U_0} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right)\right)
-		\end{align}
+		\end{align*}
 	
 		Ce qui donne pour la force de trainée :
 		\begin{equation}
