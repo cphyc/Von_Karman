@@ -629,7 +629,7 @@ def VelocityObstacle(ls, t, speed):
                 # Le tableaux des vitesses est le le tableaux des positions * vitesse
                 el[y1:y2, x1:x2]=sobs+(el[y1:y2, x1:x2]-sobs)*exp_fact
             
-def ploter(param, drags, times):
+def ploter(param, drags, int_drags, times):
     import matplotlib.pyplot as plt
     # plt.ion()
     args = param['args']
@@ -664,18 +664,23 @@ def ploter(param, drags, times):
     if args.movie:        
         if args.verbose:
             print "Saving image number " + str(param['niter'])
-            out_name = args.out + "_" + str(param['niter']) + ".png"
+        prefix = args.out + "_" + str(param['niter'])
     else:
-        out_name = args.out + ".png"
+        prefix = args.out
+    # Nom pour les sorties
+    out_name = prefix + ".png"
+    drag_name = "drag_" + prefix + ".png"
+    
     plt.savefig(out_name)
     plt.clf()
     plt.plot(times[50:],drags[50:])
+    plt.plot(times[50:],int_drags[50:])
     # plt.quiver(numpy.subtract(u,u0),v, units="dots", width=0.7, 
     #           scale_units="dots", scale=0.5,
     #             hold=False)
     # print numpy.min(u),numpy.min(v)
     plt.axis('auto')
-    plt.savefig("drag.png")
+    plt.savefig(drag_name)
 
     ###### Gael's tricks interactif
     # if 'qt' in plt.get_backend().lower():
@@ -788,6 +793,7 @@ dt_exp = CFL_explicite()
 
 # On initialise le tableau des temps et des drags
 drags = []
+int_drags =[]
 times = []
 
 for niter in xrange(nitermax):
@@ -877,6 +883,10 @@ for niter in xrange(nitermax):
     # On met à jour les drags et le temps pour faire le suivi
     drag = Drag(t)
     drags += [drag]
+    if niter > 50:
+        int_drags += [int_drags[-1]+u0*dt*drag]
+    else:
+        int_drags += [0]
     times += [t]
     
     if (niter%args.refresh==0):
@@ -900,7 +910,7 @@ for niter in xrange(nitermax):
                "dx":dx, "dy":dy, "niter":niter, "dt":dt}
         if args.parallel or args.max_parallel:
             j.append((niter,
-                    jober.submit(ploter,(param, drags, times),(DeltaY,)
+                    jober.submit(ploter,(param, drags, int_drags, times),(DeltaY,)
                                  ,("matplotlib.pyplot",) )))
             # On récupère et supprime le 1er él,
             # et on attend la fin de son exécution
@@ -909,7 +919,7 @@ for niter in xrange(nitermax):
                 print "We're at ",niter,". Waiting for the end of :", niter0
             wait_next()
         else:
-            ploter(param, drags, times)
+            ploter(param, drags, int_drags, times)
 
 if args.parallel or args.max_parallel:
     print "Waiting the end of the threads"
