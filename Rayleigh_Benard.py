@@ -26,7 +26,7 @@ parser.add_argument('--Re', required=False, default=float(1e8),
                     dest='re',help="Reynold's number, (default : 1e8)")
 parser.add_argument('--nx', required=False, type=int, default=150,
                     help="Grid size in the x direction (default : 150)")
-parser.add_argument('--ny', required=False, type=int, default=80,
+parser.add_argument('--ny', required=False, type=int, default=100,
                     help="Grid size in the y direction (default : 80)")
 
 parser.add_argument('--ox', required=False, type=int, default=15,
@@ -434,27 +434,29 @@ def Drag(t):
     try:
         r = float(args.circle)
         Lcont = 2*r
+        Dy=2*r
     except:
         ds = args.rect
-        dx = float(ds[0])
-        dy = float(ds[1])
-        Lcont = max(dx,dy)
+        Dx = float(ds[0])
+        Dy = float(ds[1])
+        Lcont = max(Dx,Dy)
 
     # On récupère l'amplitude
     _, amp = args.sinus
     amp = int(amp) + 3
     
     ox = args.ox
-    oy = (NY-dy)/2
+    
+    oy = (NY-Dy)/2
     deltay = DeltaY(t,amp,freq)
     
     J1= jacobienneV(oy-amp, oy+amp+Lcont-1, ox-2) 
     J2= jacobienneH(ox-2, ox+Lcont+1, oy+amp+Lcont)
-    J3= jacobienneV(oy-amp +1, oy+amp+Lcont, ox+dx+2)
+    J3= jacobienneV(oy-amp +1, oy+amp+Lcont, ox+Lcont+2)
     J4= jacobienneH(ox-1, ox+Lcont+2, oy-amp)
     
     #Left : on calcule sigma*ds.ex sur la gauche
-    sigma1 = -dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
+    sigma1 = dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
                   + 2./Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
     
     #top
@@ -480,10 +482,10 @@ def VelocityGhostPoints(u,v):
     u[:, -1] = u[:, -2] 
     v[:, -1] = v[:, -2] 
     ### bottom     
-    u[0,  :] = -u[2,  :] 
+    u[0,  :] = u[2,  :] 
     v[0,  :] = v[2,  :] 
     ### top      
-    u[-1, :] = -u[-3, :] 
+    u[-1, :] = u[-3, :] 
     v[-1, :] = v[-3, :] 
 
 def TraceurGhostPoint(T):
