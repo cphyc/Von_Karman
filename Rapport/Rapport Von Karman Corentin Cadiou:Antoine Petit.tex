@@ -15,8 +15,10 @@ Cours de physique numérique}
 	
 	Le régime de l'écoulement d'un fluide autour d'un obstacle diffère en fonction du nombre de Reynolds associé au fluide et à l'obstacle : à faible Reynolds, l'écoulement est laminaire, à fort nombre de Reynolds l'écoulement est turbulent. Dans le cadre de cette étude, on s'intéresse à un régime intermédiaire, celui de l'allée Von Karman. Dans ce régime, deux tourbillons se forment derr!ère l'obstacle, une perturbation détache l'un des deux, ce qui crée une dépression derrière l'obstacle donnant une vitesse vetricale au second. Le secon tourbillon est à son tour entrainé par le fluide par advection et ainsi de suite.
 	
-	%figure
-	
+\begin{center}
+  \includegraphics[width=0.6\textwidth]{von-karman-clouds.jpg}
+\end{center}
+  
 	Le phénomène est périodique et on peut montrer par analyse dimensionnelle que la fréquence d'émission des tourbillons est fonction du nombre de Reynolds : $f = \frac{U_0}{D}g(Re)$. Dans le cadre d'un cylindre $\frac{fD}{U_0}=0,198\left (1-\frac{19,7}{Re}\right )$ \cite{Von_Karman}
 	
 		\subsection{À propos des dimensions du problème}
@@ -52,9 +54,9 @@ Cours de physique numérique}
 		\begin{align*}
 			\sigma_{ij} 	& = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)\\
 						& = \rho U_0^2 \left( - \phi \delta_{ij} + \frac{\eta}{L U_0} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right)\right)
-		\end{align*}
-	
-		Ce qui donne pour la force de trainée :
+        \end{align*}
+
+        Ce qui donne pour la force de trainée :
 		\begin{equation}
 			\overrightarrow{F_t} = F_0 \int_\C \left[ - \phi \delta_{ij}+ \frac{1}{\mathrm{Re}} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right) \right] \cdot \d \hat{l_j} \ \mathrm{où} \ F_0 = \rho U_0^2 L
 		\end{equation}
@@ -184,7 +186,8 @@ Cours de physique numérique}
 
 			\begin{tabular}{|l | p{7cm}| l |}
 				\hline
-				Nom & Description & Arguments\\
+				\textbf{Nom} & \textbf{Description} & \textbf{Arguments}\\
+                \hline
 				\hline
 				\-\-hash & Utilise une table de hashage & \\
 				\hline
@@ -229,13 +232,177 @@ Cours de physique numérique}
 		
 	\subsection{L'obstacle oscillant}
 		
-		 Afin d'inverser la traînée, nous avons dû calculer une fonction permettant de déplacer l'obstacle. Une première permettait de faire bouger l'obstacle verticalement, de manière sinusoïdale. Il suffisait de varier la position $oy$ du rectangle. Nous avons ensuite créé une fonction permettant de le faire tourner autour d'un pivot.
+    Afin d'inverser la traînée, nous avons dû calculer une fonction
+permettant de déplacer l'obstacle. Une première permettait de faire
+bouger l'obstacle verticalement, de manière sinusoïdale. Il suffisait
+de varier la position $oy$ du rectangle.
+
+Pour simplifier la démarche pour effectuer des rotations,
+nous avons ensuite créé une classe python décrivant l'obstacle et
+donnant accès à des méthodes comme par exemple la position du point de
+rotation et permettant d'éffectuer des améliorations de performances
+lors de l'exploration de tous les points contenus dans l'obstacle.
+
+Pour modéliser la rotation de l'obstacle, nous avons décidé d'itérer
+sur tous les points de l'obstacle (grâce à un itérateur que nous avons
+écrit) et d'appliquer une matrice de rotation dépendant de la position
+du point de pivot, du temps, de la fréquence et de l'amplitude de
+l'oscillation. Notons $M$ le masque, $O$
+l'ensemble des points de l'obstacle et $R$ la rotation d'angle $\theta$.
+
+Notre masque est l'ensemble :
+\[ M = \left\lbrace (x,y) \in \mathbb{Z}^2 / R^{-1}(x,y)
+  \in O \right\rbrace \]
+
+Une fois cette ensemble construit, il suffit de parcourir tous les
+éléments de $M$ et d'appliquer le masque au champ de vitesse à
+l'instant $n+1$, noté $\phi^{n+1}$ selon la pénalisation (définie par
+une fonction $p(x,y)$) : 
+\[ \forall (x,y)\in M, \phi^{n+1}(x,y) = p(\phi^{n}(x,y)) \] 
 		 
 	\subsection{Optimisations du code}
-		
-		\subsubsection{Le calcul parallèle}
-		
-		\subsubsection{L'interface graphique}
+		Dans un premier temps, des outils de détection des parties
+inutilisées du code ont été utilisés (\emph{pyflakes} pour supprimer les
+fonctions et les imports inutilisés et \emph{coverage} pour détecter les
+variables inutilisées).\\
+L'étape suivante a été de tenter de remplacer toutes les boucles for
+par la structure plus naturelle en python 2 de compréhension de liste
+, ceci pour gagner environ $5-10\%$:
+
+\begin{minipage}[t]{0.5\textwidth}
+\paragraph{Classique  : $t_{exec} = 3.3s$}
+
+\begin{verbatim}
+import numpy as np
+f = lambda x : np.sin(2*np.pi*x)
+l = []
+
+for i in xrange(0, 1000000):
+    l.append(f(i))
+\end{verbatim}
+\end{minipage}
+\begin{minipage}[t]{0.5\textwidth}
+\paragraph{Compréhension de liste : $t_{exec} = 3.1s$}
+
+\begin{verbatim}
+import numpy as np
+f = lambda x : np.sin(2*np.pi*x)
+
+l = [f(i) for i in xrange(0, 1000000)]
+\end{verbatim}
+\end{minipage}
+
+On constate de plus un gain en concision.
+\subsubsection{Le calcul parallèle}
+        La librairie utilisée pour afficher les images est
+matplotlib.pyplot. Cependant, une analyse des appels de fonction a
+montré que l'affichage occupait un temps non négligeable lors de
+l'éxecution du programme, comme le montre la figure \ref{call}.
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=0.9\textwidth]{pycallgraph.png}
+    \caption{Extrait du fichier généré par l'outil pycallgraph. On
+      constate que l'appel de la fonction ``ploter'' occupe $5.06$s
+      sur $8.24$s d'exécution totale. On notera que pour ce test, on a
+      choisi une fréquence d'affichage très régulière.}
+    \label{call}
+  \end{center}
+\end{figure}
+Pour optimiser l'exécution du programme, un système de calcul en
+parallèle a été implémenté (\emph{via} le module PP). Dans un premier
+temps, l'affichage dans une fenêtre graphique a été supprimé pour
+imprimer la sortie dans un fichier. Grâce à cela, il a été possible de
+faire créer les images par un \emph{thread} indépendant.
+
+Dans un second temps, les calculs ont été réalisés en parallèle
+aussi. L'optimisation s'est focalisée sur la partie qui calcule les
+matrices d'advections. Une première phase d'optimisation a consisté à
+créer un ``table de hashage'' dans laquelle toutes les matrices
+précalculées sont stockées. Une telle table est un tableau associatif
+qui a un champ de vitesse (identifié par son ``hash'' associe un
+ensemble de matrices). Ainsi, pendant l'éxecution d'une BFECC,
+on calcule l'ensemble des matrices associées au champ de vitesse
+$\phi$ noté $E[\phi]$. On effectue une étape d'advection avec $\phi$
+puis une autre avec $-\phi$. Enfin, on corrige l'erreur éstimée en
+et on refait une étape d'avection avec comme champ $\phi$. Il est donc
+dommage de devoir recalculer les matrices déjà calculées plus haut,
+puisqu'elles sont déjà dans $E[\phi]$.\\
+Le calcul en parallèle intervient justement dans le calcul de ces
+matrices. En notant toujours $\phi$ le champ de vecteur, qu'on peut
+considérer comme deux matrices $U$ et $V$ (ses composantes selon $x$
+et $y$), l'advection nécessite de calculer (à des constantes près): 
+\begin{align*}
+  \left| U \right | & &  1 - \left| U \right | & &(1)\\
+  \left| V \right | & &  1 - \left| V \right | & &(2)\\
+  \textrm{sign}\left( \textrm{sign}(U+1)\right) & &   1 -
+  \textrm{sign}\left( \textrm{sign}(U+1)\right) & &(3)\\
+  \textrm{sign}\left( \textrm{sign}(V+1)\right) & &   1 -
+  \textrm{sign}\left( \textrm{sign}(V+1)\right) & &(4)
+\end{align*} 
+Il faut ensuite calculer des produits de matrices. Ce genre de calcul
+peut très facilement être effectué en parallèle et c'est ce qui a été
+réalisé.
+ 
+Pour mesurer l'optimisation ainsi crée, des mesures de temps
+d'éxecution du code sur un nombre précis d'itérations a été
+réalisé. Les résultats sont présentés dans le tableau
+\ref{optimisation}.
+
+On constate que le calcul en parallèle est surtout utile pour
+l'affichage. Sur un ordinateur multi-coeur, l'ajout du parallelisme a
+permis d'améliorer de $20$ à $40\%$ les performances.\\
+Pour être encore plus fin, il convient de discuter des domaines dans
+lesquels le mode ``parallèle'' et le mode ``tout-parallèle'' sont les
+meilleurs. On se réferera pour cela au tableau
+\ref{optimisation_parallel}. Dans notre cas, les simulations ont été
+effectuées sur des grilles de l'ordre de grandeur de 100 par 100. On a
+donc plutôt utilisé l'option ``parallèle''.
+
+\begin{table}
+  \begin{center}
+    \begin{tabular}{|c|c|c|c|c|}
+      \hline
+      Itérations & Taux de rafraîchissement& Normal & Parallèle &
+      Tout parallèle \\
+      \hline
+      1000&	50&	25&	\textbf{16}&	22\\
+      100&	10&	8&	\textbf{5}&	6\\
+      2000&	100&	35&	\textbf{27}&	39\\
+      1000&	100&	16&	\textbf{11}&	17\\
+      500&	10&	32&	\textbf{19}&	21 \\
+      \hline
+    \end{tabular}
+    \caption{Tableaux présentants les temps d'éxécution. Les taux de
+      rafraîchissement sont en itérations par image. Les temps
+      d'éxecution sont en seconde. Les colonnes ``Normal'' (pas de calcul
+      parallèle), ``Parallèle'' (affichage dans un \emph{thread}
+      indépendant) et ``Tout parallèle'' (affichage et certains
+      calculs dans des \emph{threads} indépendants).}
+    \label{optimisation}
+  \end{center}
+\end{table}
+\begin{table}
+  \begin{center}
+    \begin{tabular}{|c|c|c|c|c|}
+      \hline
+      Taille de la grille&	Parallèle&	Tout parallèle& $\Delta$\\	
+      \hline
+      100&	2.801&	3.018&	0.93\\
+      200&	4.51&	4.091&	1.10\\
+      300&	8.593&	7.096&	1.21\\
+      400&	15.481&	13.234&	1.17\\
+      \hline
+    \end{tabular}
+    \caption{On a noté $\Delta = \frac{t_{\mathrm{exec,tout
+            parallel}}}{t_{\mathrm{exec,parallel}}}$. Tableau de temps
+      d'exécution en fonction du parallélisme utilisé. On
+      constate que pour une grande grille, le calcul tout en parallèle
+      est plus intéressant. Pour des grilles de la taille de celles
+      utilisées (100*100), ce n'est pas rentable et il vaut mieux ne
+      mettre en parallèle que l'impression des images.}
+    \label{optimisation_parallel}
+  \end{center}
+\end{table}
 		 
 \section{Analyse des résultats}
 
