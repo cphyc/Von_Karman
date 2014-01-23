@@ -48,7 +48,7 @@ parser.add_argument('--tracer-size', required=False, type=int, default=1,
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
                     dest="assym", help="Assymetry (default : None)")
 parser.add_argument('--speed', '-s', required=False, type=int,
-                    default=1, dest="speed", help="Speed at the left (default : 1)")
+                    default=10, dest="speed", help="Speed at the left (default : 10)")
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
                     default=(5,10), dest="sinus", 
                     metavar=('F','A'),
@@ -131,6 +131,8 @@ class Obstacle:
         if x >= self.xmin and x < self.xmax and y >= self.ymin and y < self.ymax:
             return [x,y]
         else:
+            self.posX = xmin
+            self.posY = ymin
             raise StopIteration
 class Mask:
     def __init__(self):
@@ -143,13 +145,9 @@ class Mask:
     # champ*vitesse
     def apply(self, ls, speed, pivot):
         px, py = pivot
-        print self.ptList
-        print px, py 
         exp_fact = numpy.exp(-args.alpha*dt)
         for field,s in zip(ls, speed):
-            print "Ici"
             for x,y in self.ptList:
-                print x,y
                 # On se place en référence au point de pivot pour le facteur
                 sobs = numpy.sqrt((y-py)**2+(x-px)**2)*s
                 # On applique la formule
@@ -587,7 +585,6 @@ def VelocityObstacle(ls, t, speed):
         rangeX = range(0,NX)
         rangeY = range(0,NY) 
         # Pour tout point de l'obstacle, on fait son image
-        print "Je suis ici"
         mask = Mask()
         for pt in obs:
             # On arrondi
