@@ -1,0 +1,1 @@
+./Rayleigh_Benard.py  --rect 5 5 --sinus 10 0.1 --parallel --alpha 1000 --behind --nx 250 -s 5
