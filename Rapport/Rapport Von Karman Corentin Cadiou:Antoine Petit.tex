@@ -1,0 +1,104 @@
+\input{macros}
+\title{L'allée de Von Karmann pour un obstacle oscillant\\
+Cours de physique numérique}
+
+\author{Corentin Cadiou \and Antoine Petit}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section{L'allée de Von Karman}
+	
+	Le régime de l'écoulement d'un fluide autour d'un obstacle diffère en fonction du nombre de Reynolds associé au fluide et à l'obstacle : à faible Reynolds, l'écoulement est laminaire, à fort nombre de Reynolds l'écoulement est turbulent. Dans le cadre de cette étude, on s'intéresse à un régime intermédiaire, celui de l'allée Von Karman. Dans ce régime, deux tourbillons se forment derr!ère l'obstacle, une perturbation détache l'un des deux, ce qui crée une dépression derrière l'obstacle donnant une vitesse vetricale au second. Le secon tourbillon est à son tour entrainé par le fluide par advection et ainsi de suite.
+	
+	%figure
+	
+	Le phénomène est périodique et on peut montrer par analyse dimensionnelle que la fréquence d'émission des tourbillons est fonction du nombre de Reynolds : $f = \frac{U_0}{D}g(Re)$. Dans le cadre d'un cylindre $\frac{fD}{U_0}=0,198\left (1-\frac{19,7}{Re}\right )$ \cite{Von_Karman}
+	
+	
+	
+	
+
+\section{Le schéma}
+
+	\subsection{Le calcul des champs de vitesses}
+		
+		Le champ de vitesse est calculé en plusieurs étapes. Tout d'abord on effectue une advection pure au moyen du schéma \eqref{schema advection u} d'ordre 2 en espace. On note $(u,v)$ le champ de vitesse
+		
+		\begin{equation}
+			u_{i \ j}^{n+1} = u_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(u_{i+1 \ j}^n-u_{i-1 \ j}^n) + v_{i \ j}^{n}(u_{i \ j+1}^n-u_{i \ j-1}^n)) \\
+			\label{schema advection u}
+		\end{equation}
+		\[ 	v_{i \ j}^{n+1} = v_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(v_{i+1 \ j}^n-v_{i-1 \ j}^n) + v_{i \ j}^{n}(v_{i \ j+1}^n-v_{i \ j-1}^n))
+		\]
+		
+		
+		
+	\subsection{Les conditions aux limites}
+		
+		\subsubsection{Au bord}
+		
+		\subsubsection{Sur l'obstacle}
+
+
+
+
+	\subsection{À propos des dimensions du schéma étudié}
+	
+		Notre schéma numérique représente l'équation de Navier-Stokes 		adimensionnée :
+
+		\begin{equation}
+			\partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} = - \nablaf (\phi) + \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u}
+			\label{NS}
+		\end{equation}
+	
+		Où $\overrightarrow{u}$ est la vitesse renormalisée par $U_0$ la vitesse du fluide à l'infini,
+		les longueurs sont adimensionnées par $L$ la largeur de l'obstacle,
+		t est renormalisé par $T_0 = \frac{L}{U_0}$,
+		$\phi$ est la pression divisée par $\rho {U_0}^2$ ($\rho$ est la masse volumique du fluide)
+		et Re est le nombre de Reynolds : Re = $\frac{\rho L U_0}{\eta}$ ($\eta$ est la viscosité cinématique).
+	    
+	   
+		Les distances et le temps sont bien renormalisés par la donnée de la taille de la grille pour les distances et la condition CFL pour le temps.
+	
+	    
+		Cependant quelques problèmes demeurent : 
+		\begin{itemize}
+			\item $u$ et $v$ pas vraiment  admiensionnés par $U_0$ 
+			\item À aucun moment on ne tient compte de la pression réelle ou de la masse volumique
+		\end{itemize}
+	
+		\paragraph{La force de traînée}
+
+		On calcule la force de traînée par intégration du tenseur des contraintes sur un contour carré autour de l'obstacle (soulignons que la force est ici linéique dû au caractère bidimensionnel du modèle) :
+	
+		\begin{equation}
+			\overrightarrow{F_t} = \int_\C [\sigma]\cdot\overrightarrow{\d l} \ \mathrm{où} \ \sigma_{ij} = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)
+			\label{trainee}
+		\end{equation}
+		
+		Si on adimensionne \eqref{trainee} comme l'équation de Navier-Stokes \eqref{NS} on obtient :
+		\begin{align*}
+			\sigma_{ij} 	& = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)\\
+						& = \rho U_0^2 \left( - \phi \delta_{ij} + \frac{\eta}{L U_0} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right)\right)
+		\end{align*}
+	
+		Ce qui donne pour la force de trainée :
+		\begin{equation}
+			\overrightarrow{F_t} = F_0 \int_\C \left[ - \phi \delta_{ij}+ \frac{1}{\mathrm{Re}} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right) \right] \cdot \d \hat{l_j} \ \mathrm{où} \ F_0 = \rho U_0^2 L
+		\end{equation}
+		
+		\cite{Advect}
+		\cite{BFECC}
+		
+		
+\section{Anlyse des résultats}
+		
+\bibliographystyle{plain}
+\bibliography{Biblio.bib}
+	
+\end{document}
