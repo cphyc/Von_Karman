@@ -9,7 +9,8 @@ import numpy
 import scipy.sparse as sp
 import scipy.sparse.linalg as lg
 import argparse
-
+import matplotlib.path as mpa
+import matplotlib.transforms as mtr
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
                     help = 'Experimental : use a hash method for speed improvements (default : false)',
@@ -22,8 +23,8 @@ parser.add_argument('--BFECC', '-b', required=False, action='store_true',
                     default=False)
 parser.add_argument('--tracer', '-t', required=False, type=float, default=10,
                     dest='tracers', help='Use TRACER tracers (default : 10)')
-parser.add_argument('--Re', required=False, default=float(1e8),
-                    dest='re',help="Reynold's number, (default : 1e8)")
+parser.add_argument('--Re', required=False, default=float(1e4),
+                    dest='re',help="Reynold's number, (default : 1e4)")
 parser.add_argument('--nx', required=False, type=int, default=150,
                     help="Grid size in the x direction (default : 150)")
 parser.add_argument('--ny', required=False, type=int, default=80,
@@ -31,6 +32,7 @@ parser.add_argument('--ny', required=False, type=int, default=80,
 
 parser.add_argument('--ox', required=False, type=int, default=15,
                     help="Obstacle leftest position in the x direction")
+
 parser.add_argument('--behind', required=False, action='store_true',
                     help="Tracers behind the obstacle (default : false)")
 parser.add_argument('--parallel', required=False, action='store_true',
@@ -98,7 +100,48 @@ if args.parallel or args.max_parallel:
     for i in xrange(int(args.nprocess)):
         j.append((0,lambda:0))
 
-        
+# Object obstacle:
+class Obstacle:
+    def __init__(self, xmin, ymin, w, h):
+        # Boîte délimitée par xmin, xmin+w, ymin, ymin+h
+        self.xmin = xmin
+        self.xmax = xmin + w
+        self.ymin = ymin
+        self.ymax = ymin + h
+        self.posX = xmin
+        self.posY = ymin
+    def __iter__(self):
+        return self
+    def next(self):
+        x = self.posX
+        y = self.posY
+        if (self.posX + 1 < xmax): # Si on peut continuer sur la ligne
+            self.posX+=1
+        else :
+            self.posY += 1 # Sinon on monte
+            self.posX = xmin
+        if x >= xmin and x < xmax and y >= ymin and y<ymax:
+            return [x,y]
+        else:
+            raise StopIteration
+class Mask:
+    def __init__(self):
+        self.ptList = []
+    def add(self, pt):
+        if not(pt in ptList):
+            ptList.append(pt)
+            
+    # Méthode qui applique le champ factor avec sur la liste de
+    # champ*vitesse
+    def apply(self, ls, speed, factor):
+        exp_fact = numpy.exp(-args.alpha*dt)
+        for x,y in ptList:
+            for field,s in zip(ls, speed):
+                # La vitesse en ce point doit être
+                sobs = factor[y,x]*s
+                # On applique la formule
+                field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
+                         
 ###### affichage graphique
 # import matplotlib.pyplot as plt
 # if 'qt' in plt.get_backend().lower():
@@ -323,7 +366,7 @@ def BuildLaPoisson():
     
     # tmp = LAP + LAP0
     # print LAP.todense()
-    # print LAP0.todense()
+    # print LA0.todense()
     # print tmp.todense()
   
     return LAP + LAP0
@@ -433,6 +476,8 @@ def Drag(t):
     try:
         r = float(args.circle)
         Lcont = 2*r
+        dx = 2*r
+        dy = 2*r
     except:
         ds = args.rect
         dx = float(ds[0])
@@ -508,7 +553,7 @@ def PhiGhostPoints(phi):
     phi[0,  :] = phi[2,  :]
     ### top               
     phi[-1, :] = phi[-3, :]
-
+    
 def VelocityObstacle(ls, t, speed, pivot_pt=None):
     """
     on impose une vitesse égale à la vitesse de l'obstacle sur celui-ci
@@ -519,49 +564,61 @@ def VelocityObstacle(ls, t, speed, pivot_pt=None):
     # On définit la fonction factor par deux fonctions lambdas:
     # si on ne pivote pas, le facteur de rotation vaut 1 pour tout x,y
     # si on pivote, il vaut la position relative du centre de rotation
-    if pivot_pt == None:
-        factor = lambda x,y: 1
-    else:
+    if pivot_pt <> None:
+        # On a un point de pivot, donc notre forme est un rectangle.
+        # On récupère les coordonnées de rotation
         x0, y0 = pivot_pt
-        factor = lambda x,y: numpy.sqrt((x0-x)**2 + (y0-y)**2)
+        # On calcule le tableaux des distances
+        factor = np.fromfunction(lambda x,y: numpy.sqrt((x0-x)**2 + (y0-y)**2),
+                                 (int(obs.width), int(obs.height)))
+        # D'une part, la matrice de rotation autour du pivot d'angle A*sin(wt):
+        R = mtr.Affine2D()
+        R.rotate_deg_around(x0,y0,amp*sin(2*numpy.pi*freq))
+        rangeX = range(0,NX)
+        rangeY = range(0,NY) 
+        # Pour tout point de l'obstacle, on fait son image 
+        mask = Mask()
+        for pt in obs:
+            # On arrondi
+            x,y = np.floor(R.transform_point(pt))
+            # x,y = int(img[0]), int(img[1])
+            mask.add([x,y])
+        # On parcourt maintenant le masque
+        mask.apply(ls, speed, factor)
 
-    # On calcule le facteur de pénalisation
-    exp_fact = numpy.exp(-args.alpha*dt)
+    else:
+        # On calcule le facteur de pénalisation
+        exp_fact = numpy.exp(-args.alpha*dt)
     
-    try: # On a un cercle
-        r = int(args.circle) # échoue si vaut None
-        ox = args.ox + r
-        oy = NY/2 + deltay
-        # On calcule le tableaux des vitesses sur le carré contenant le cercle
-        farr = numpy.fromfunction(factor,(r, r))
-        # Bornes de x
-        for x in xrange(-r,r+1):
-            ym = int(numpy.sqrt(r**2 - x**2))
-            xabs = x+ox
-            # Bornes de y (pour le cercle)
-            for y in xrange(-ym, ym+1):
-                yabs = y+oy
-                for el,s in zip(ls,speed):
-                    # On calcule le facteur en ce point
-                    sobs = s*farr[yabs, xabs]
-                    # On calcule la vitesse en ce point
-                    el[yabs, xabs] = sobs+(el[yabs,xabs]-sobs)*exp_fact
-    except TypeError : # Si on a un rectangle
-        ds = args.rect
-        dx=float(ds[0])
-        dy=float(ds[1])
-        # On se place au centre + offset
-        y1 = (NY-dy)/2+args.assym + deltay
-        y2 = y1 + dy
-        x1 = args.ox
-        x2 = x1 + dx
-        # Tableau de la taille du carré. La coordonné (x,y) a comme valeur:
-        # factor(x,y) (càd la position si on tourne, sinon 1)
-        farr = numpy.fromfunction(factor,(dx, dy))
-        for el,s in zip(ls,speed):
-            # Le tableaux des vitesses est le le tableaux des positions * vitesse
-            speed_arr = farr*s
-            el[y1:y2, x1:x2]=speed_arr+(el[y1:y2, x1:x2]-speed_arr)*exp_fact
+        try: # On a un cercle
+            r = int(args.circle) # échoue si vaut None
+            ox = args.ox + r
+            oy = NY/2 + deltay + args.assym
+            # Bornes de x
+            for x in xrange(-r,r+1):
+                ym = int(numpy.sqrt(r**2 - x**2))
+                xabs = x+ox
+                # Bornes de y (pour le cercle)
+                for y in xrange(-ym, ym+1):
+                    yabs = y+oy
+                    for el,sobs in zip(ls,speed):
+                        # On calcule la vitesse en ce point
+                        el[yabs, xabs] = sobs+(el[yabs,xabs]-sobs)*exp_fact
+        except TypeError : # Si on a un rectangle
+            ds = args.rect
+            dx=float(ds[0])
+            dy=float(ds[1])+args.assym
+            # On se place au centre + offset
+            y1 = (NY-dy)/2+args.assym + deltay
+            y2 = y1 + dy
+            x1 = args.ox
+            x2 = x1 + dx
+            # Tableau de la taille du carré. La coordonné (x,y) a comme valeur:
+            # factor(x,y) (càd la position si on tourne, sinon 1)
+            farr = numpy.ones((dx, dy))
+            for el,sobs in zip(ls,speed):
+                # Le tableaux des vitesses est le le tableaux des positions * vitesse
+                el[y1:y2, x1:x2]=sobs+(el[y1:y2, x1:x2]-sobs)*exp_fact
             
 def ploter(param, drags, times):
     import matplotlib.pyplot as plt
@@ -576,7 +633,7 @@ def ploter(param, drags, times):
     #plt.imshow(numpy.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
     #plt.imshow(u[1:-1, 1:-1], origin="lower")
     if args.behind:
-        vmi = 0.7
+        vmi = 0.3
     else:
         vmi = 0
     plt.imshow(T[1:-1, 1:-1], vmin=vmi, vmax=1,figure=0)
@@ -619,7 +676,7 @@ def ploter(param, drags, times):
 ###### Taille adimensionnee du domaine
 ### aspect_ratio = LY/LX  
 
-aspect_ratio = float(1.)
+aspect_ratio = float(args.ny*1.0/args.nx)
 LY = float(1.)
 LX = LY/aspect_ratio
 
@@ -655,6 +712,10 @@ if use_tracer > 0:
     else:
         T = numpy.zeros((NY,NX))
         
+##### INITIALISATION DE L'OBSTACLE
+xmin = args.ox
+ymin = (NY - args.rect[1])/2
+obs = Obstacle(xmin, ymin, args.rect[0], args.rect[1])
 
 ####################
 ###### COEF POUR ADIM
