@@ -536,10 +536,10 @@ def VelocityGhostPoints(u,v):
     u[:, -1] = u[:, -2] 
     v[:, -1] = v[:, -2] 
     ### bottom     
-    u[0,  :] = -u[2,  :] 
+    u[0,  :] = u[2,  :] 
     v[0,  :] = v[2,  :] 
     ### top      
-    u[-1, :] = -u[-3, :] 
+    u[-1, :] = u[-3, :] 
     v[-1, :] = v[-3, :] 
 
 def TraceurGhostPoint(T):
