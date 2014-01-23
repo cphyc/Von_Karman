@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+!/usr/bin/python2
 # -*- coding:utf-8 -*-
 #
 # Convection 2D schema explicite
@@ -71,7 +71,7 @@ parser.add_argument('--niter', required=False, type=int, default=10000,
 
 args=parser.parse_args()
 freq=float(args.sinus[0])
-amp=int(args.sinus[1])
+amp=float(args.sinus[1])
 
 if args.do_hash : print 'Using hash algorithm...'
 if args.BFECC : print 'Using BFECC method...'
@@ -107,6 +107,14 @@ if args.parallel or args.max_parallel:
 #     except ImportError:
 #         from PySide import QtGui
 
+class Object :
+    def __init__(self, x0, x1, y0, y1):
+        self.x0 = x0
+        self.x1 = x1
+        self.y0 = y0
+        self.y1 = y1
+        self.
+    
                  
 def CFL_advection():
     """
@@ -442,7 +450,7 @@ def Drag(t):
 
     # On récupère l'amplitude
     _, amp = args.sinus
-    amp = int(amp) + 3
+    amp = int(float(amp)) + 3
     
     ox = args.ox
     oy = (NY-dy)/2
@@ -510,16 +518,31 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
 
-def VelocityObstacle(ls, t, speed):
+def VelocityObstacle(ls, t, speed, pivot_pt=None):
     """
-    on impose une égale à la vitesse de l'obstacle sur celui-ci
+    on impose une vitesse égale à la vitesse de l'obstacle sur celui-ci
+    en option, rotate qui donne le point autour duquel on tourne. La vitesse est
+    alors définie comme la vitesse de rotation.
     """
     deltay = DeltaY(t, amp, freq)
+    # On définit la fonction factor par deux fonctions lambdas:
+    # si on ne pivote pas, le facteur de rotation vaut 1 pour tout x,y
+    # si on pivote, il vaut la position relative du centre de rotation
+    if pivot_pt == None:
+        factor = lambda x,y: 1
+    else:
+        x0, y0 = pivot_pt
+        factor = lambda x,y: numpy.sqrt((x0-x)**2 + (y0-y)**2)
 
+    # On calcule le facteur de pénalisation
+    exp_fact = numpy.exp(-args.alpha*dt)
+    
     try: # On a un cercle
         r = int(args.circle) # échoue si vaut None
         ox = args.ox + r
         oy = NY/2 + deltay
+        # On calcule le tableaux des vitesses sur le carré contenant le cercle
+        farr = numpy.fromfunction(factor,(r, r))
         # Bornes de x
         for x in xrange(-r,r+1):
             ym = int(numpy.sqrt(r**2 - x**2))
@@ -527,9 +550,11 @@ def VelocityObstacle(ls, t, speed):
             # Bornes de y (pour le cercle)
             for y in xrange(-ym, ym+1):
                 yabs = y+oy
-                for el,s in zip(ls,speed):                    
-                    # el[yabs, xabs] = s+(el[yabs,xabs]-s)*numpy.exp(-args.alpha*dt)
-                    el[yabs, xabs] = s
+                for el,s in zip(ls,speed):
+                    # On calcule le facteur en ce point
+                    sobs = s*farr[yabs, xabs]
+                    # On calcule la vitesse en ce point
+                    el[yabs, xabs] = sobs+(el[yabs,xabs]-sobs)*exp_fact
     except TypeError : # Si on a un rectangle
         ds = args.rect
         dx=float(ds[0])
@@ -539,12 +564,13 @@ def VelocityObstacle(ls, t, speed):
         y2 = y1 + dy
         x1 = args.ox
         x2 = x1 + dx
-        # Tableaux de la taille du carré, rempli de 1
-        arr = numpy.ones((dx, dy))
+        # Tableau de la taille du carré. La coordonné (x,y) a comme valeur:
+        # factor(x,y) (càd la position si on tourne, sinon 1)
+        farr = numpy.fromfunction(factor,(dx, dy))
         for el,s in zip(ls,speed):
-            speed_arr = arr*s
-            el[y1:y2, x1:x2] = speed_arr + (el[y1:y2, x1:x2]-speed_arr)*numpy.exp(-args.alpha*dt)
-            # el[y1:y2, x1:x2] = speed_arr
+            # Le tableaux des vitesses est le le tableaux des positions * vitesse
+            speed_arr = farr*s
+            el[y1:y2, x1:x2]=speed_arr+(el[y1:y2, x1:x2]-speed_arr)*exp_fact
             
 def ploter(param, drags, times):
     import matplotlib.pyplot as plt
@@ -577,7 +603,8 @@ def ploter(param, drags, times):
     #plt.plot(Resv[75,:])
     #plt.plot(u[,:])
     # On sauvegarde dans une liste drags et times
-    if args.movie:
+    # out_name = args.out + ".png"
+    if args.movie:        
         if args.verbose:
             print "Saving image number " + str(param['niter'])
             out_name = args.out + "_" + str(param['niter']) + ".png"
