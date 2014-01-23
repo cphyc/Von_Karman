@@ -1,4 +1,4 @@
-!/usr/bin/python2
+#!/usr/bin/python2
 # -*- coding:utf-8 -*-
 #
 # Convection 2D schema explicite
@@ -106,15 +106,6 @@ if args.parallel or args.max_parallel:
 #         from PyQt4 import QtGui
 #     except ImportError:
 #         from PySide import QtGui
-
-class Object :
-    def __init__(self, x0, x1, y0, y1):
-        self.x0 = x0
-        self.x1 = x1
-        self.y0 = y0
-        self.y1 = y1
-        self.
-    
                  
 def CFL_advection():
     """

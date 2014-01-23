@@ -1,0 +1,1 @@
+./Rayleigh_Benard.py  --rect 5 5 --sinus 10 0.1 --alpha 1000 --behind --nx 350 -s 5 -r 10 --BFECC
