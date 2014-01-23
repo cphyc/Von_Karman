@@ -50,15 +50,15 @@ parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
 parser.add_argument('--speed', '-s', required=False, type=int,
                     default=10, dest="speed", help="Speed at the left (default : 10)")
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
-                    default=(5,10), dest="sinus", 
+                    default=(0,0), dest="sinus", 
                     metavar=('F','A'),
-                    help="Use a sinus at frequency F and amplitude A for the oscillation (default : F=5, A=10)")
+                    help="Use a sinus at frequency F and amplitude A for the oscillation (default : F=0, A=0)")
 parser.add_argument('--rotate', '-R', required=False,
                     default=False, action='store_true',
                     help="Use an oscillation.")
 parser.add_argument('--rect', required=False, nargs=2, metavar=("WIDTH", "HEIGHT"),
-                    default=(40, 40), 
-                    help="The obstacle is a rectangle of size WIDTH*HEIGHT (default : 40*40).")
+                    default=(10, 10), 
+                    help="The obstacle is a rectangle of size WIDTH*HEIGHT (default : 10*10).")
 parser.add_argument('--circle', required=False, metavar=("RADIUS"),
                     nargs='?', 
                     help="The obstacle is a circle of radius RADIUS (default : 40) (overrides --rect option)")

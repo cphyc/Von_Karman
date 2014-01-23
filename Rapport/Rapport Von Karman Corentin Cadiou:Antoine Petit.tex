@@ -179,55 +179,48 @@ Cours de physique numérique}
 
 	\subsection{Les options}
 		
-		Elles permettent de donner les caractéristiques de la simulation que l'on souhaite effectuer :
-			\begin{tabular}{|l | l|}
-				Nom & Description\\
+		Elles permettent de donner les caractéristiques de la simulation que l'on souhaite effectuer :\\
+			\begin{table}
+
+			\begin{tabular}{|l | p{7cm}| l |}
 				\hline
-				--hash & Utilise une table de hashage\\
+				Nom & Description & Arguments\\
 				\hline
-				
+				\-\-hash & Utilise une table de hashage & \\
+				\hline
+				\-\-BFECC & Utiliser la méthode BFECC & Booléen\\
+				\hline
+				\-\-tracer & Visualiser par injections de traceurs & Par défaut 10\\
+				\hline
+				\-\-behind & Obstacle absorbant le colorant & \\
+				\hline
+				\-\-Re & Nombre de Reynolds &  Par défaut 1e4\\
+				\hline
+				\-\-nx, \-\-ny & Taille de la grille &  Par défaut 150, 80\\
+				\hline
+				\-\-ox & Position de l'obstacle (à gauche) &\\
+				\hline
+				\-\-parallel & Utiliser le calcul parallèle pour le plot& Par défaut False\\
+				\hline
+				\-\-max parallel & Utiliser le calcul parallèle pour le plot & \\
+				\hline
+				\-\-speed & Vitesse du fluide & Par défaut 1 \\
+				\hline
+				\-\-sinus & On anime l'objet d'un mouvement sinusoïdal vertical & Par défaut freq=0 amp=0\\
+				\hline
+				\-\-rect & L'obstacle est un rectangle & Par défaut (width,height) = (10,10)\\
+				\hline
+				\-\-circle & L'obstacle est un cercle & Écrase l'option rectangle\\
+				\hline
+				\-\-movie & La sortie donne la série d'images  & \\
+				\hline
+				\-\-alpha & Gère le coefficient de pénalisation & Par défaut 10 000\\
+				\hline
+				\-\-niter & Nombre d'itérations de la simulation & Par défaut 10 000\\
+				\hline
 			\end{tabular}
-		
-
-  --hash, -H            Experimental : use a hash method for speed
-                        improvements (default : false)
-  --hash-size [MAX_HASH_SIZE]
-                        Control the size of the stack for the hash (default :
-                        30)
-  --BFECC, -b           Use the BFECC method for better simulation (default :
-                        false)
-  --tracer TRACERS, -t TRACERS
-                        Use TRACER tracers (default : 10)
-  --Re RE               Reynold's number, (default : 1e4)
-  --nx NX               Grid size in the x direction (default : 150)
-  --ny NY               Grid size in the y direction (default : 80)
-  --ox OX               Obstacle leftest position in the x direction
-  --behind              Tracers behind the obstacle (default : false)
-  --parallel            Use parallel processing for plotting (default : false)
-  --max_parallel        Use parallel processing for processing (default :
-                        false)
-  --nprocess NPROCESS   Number of coprocessors to use (default : 4)
-  --out OUT             Name of the file of the output (default 'out')
-  --tracer-size COLWIDTH
-                        Size of the tracers (default : 1)
-  --assymetry ASSYM, -a ASSYM
-                        Assymetry (default : None)
-  --speed SPEED, -s SPEED
-                        Speed at the left (default : 1)
-  --sinus F A, -S F A   Use a sinus at frequency F and amplitude A (default :
-                        F=5, A=10)
-  --rect WIDTH HEIGHT   The obstacle is a rectangle of size WIDTH*HEIGHT
-                        (default : 40*40).
-  --circle [RADIUS]     The obstacle is a circle of radius RADIUS (default :
-                        40) (overrides --rect option)
-  --refresh REFRESH, -r REFRESH
-                        Refresh rate (default : 50
-  --verbose, -v         Enable verbose output (default : false)
-  --movie, -m           The output is now a sequence of pictures
-  --alpha ALPHA         Absorption coefficient in the obstacle
-  --niter NITER         Number of iterations (def: 10.000)
-MacBook-de-Antoine-Petit-2:Von_Karman antoine$ 
-
+						
+			\end{table}
 			
 	\subsection{Le calcul du Drag}
 	
@@ -250,12 +243,10 @@ MacBook-de-Antoine-Petit-2:Von_Karman antoine$
 	
 		On observe bien l'instabilité, tant pour un obstacle rectangulaire que pour un obstacle circulaire. Bien que l'apparition de l'allée soit plus longue dans le cas circulaire car l'obstacle est mieux profilé. Il faut prendre garde à prendre un espace d'étude suffisamment grand pour éviter que l'allée ne sorte par un des côtés car ensuite elle y reste bloquée.
 	
-	\subsection{La force de trainée}
+	\subsection{La force de trainée, application à l'obstacle oscillant}
 	
-		Grâce à la méthode de pénalisation, on obtient une courbe régulière pour la traînée. Dans le cas d'un obstacle 
-	
-	\subsection{La nage du têtard}
-	
+		Grâce à la méthode de pénalisation, on obtient une courbe régulière pour la traînée. Dans le cas d'un obstacle oscillant, pour une certaine gamme de fréquences et d'amplitudes, on observe que la trainée peut devenir négative, nous avons donc calculé $W_t= \int F_t U_0\d t$, le travail dans le référentiel du fluide de la force de traînée.
+
 	
 	
 	
