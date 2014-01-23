@@ -19,6 +19,47 @@ Cours de physique numérique}
 	
 	Le phénomène est périodique et on peut montrer par analyse dimensionnelle que la fréquence d'émission des tourbillons est fonction du nombre de Reynolds : $f = \frac{U_0}{D}g(Re)$. Dans le cadre d'un cylindre $\frac{fD}{U_0}=0,198\left (1-\frac{19,7}{Re}\right )$ \cite{Von_Karman}
 	
+		\subsection{À propos des dimensions du problème}
+	
+		Notre schéma numérique représente l'équation de Navier-Stokes adimensionnée :
+
+		\begin{equation}
+			\partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} = - \nablaf (\phi) + \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u}
+			\label{NS}
+		\end{equation}
+	
+		Où $\overrightarrow{u}$ est la vitesse renormalisée par $U_0$ la vitesse du fluide à l'infini,
+		les longueurs sont adimensionnées par $L$ la largeur de l'obstacle,
+		t est renormalisé par $T_0 = \frac{L}{U_0}$,
+		$\phi$ est la pression divisée par $\rho {U_0}^2$ ($\rho$ est la masse volumique du fluide)
+		et Re est le nombre de Reynolds : Re = $\frac{\rho L U_0}{\eta}$ ($\eta$ est la viscosité cinématique).
+	    
+	   
+		Les distances et le temps sont bien renormalisés par la donnée de la taille de la grille pour les distances et la condition CFL pour le temps.
+	
+		\subsection{La force de traînée}
+
+		Des études sur le déplacement des insectes ont montré que si l'obstacle oscille, la force de trainée peut s'inverser et pousser l'objet, nous avons calculer la force de trainée.	
+		
+		On calcule la force de traînée par intégration du tenseur des contraintes sur un contour carré autour de l'obstacle (soulignons que la force est ici linéique dû au caractère bidimensionnel du modèle) :
+	
+		\begin{equation}
+			\overrightarrow{F_t} = \int_\C [\sigma]\cdot\overrightarrow{\d l} \ \mathrm{où} \ \sigma_{ij} = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)
+			\label{trainee}
+		\end{equation}
+		
+		Si on adimensionne \eqref{trainee} comme l'équation de Navier-Stokes \eqref{NS} on obtient :
+		\begin{align*}
+			\sigma_{ij} 	& = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)\\
+						& = \rho U_0^2 \left( - \phi \delta_{ij} + \frac{\eta}{L U_0} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right)\right)
+		\end{align*}
+	
+		Ce qui donne pour la force de trainée :
+		\begin{equation}
+			\overrightarrow{F_t} = F_0 \int_\C \left[ - \phi \delta_{ij}+ \frac{1}{\mathrm{Re}} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right) \right] \cdot \d \hat{l_j} \ \mathrm{où} \ F_0 = \rho U_0^2 L
+		\end{equation}
+		
+	
 	
 	
 	
@@ -30,7 +71,7 @@ Cours de physique numérique}
 		Le champ de vitesse est calculé en plusieurs étapes. Tout d'abord on effectue une advection pure au moyen du schéma \eqref{advection} d'ordre 2 en espace. On note $(u,v)$ le champ de vitesse et $(u^*,v*)$ le champ résultant de la première étape.
 		
 		\begin{equation}
-			{u^*}_{i \ j}^{n} = u_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(u_{i+1 \ j}^n-u_{i-1 \ j}^n) + v_{i \ j}^{n}(u_{i \ j+1}^n-u_{i \ j-1}^n)) \\
+			{u^*}_{i \ j}^{n} = u_{i \ j}^n - {\d t}( u_{ij}^n \frac{u_{i+1 \ j}^n-u_{i-1 \ j}^n}{2 \d x} + v_{i \ j}^{n} \frac{u_{i \ j+1}^n-u_{i \ j-1}^n}{2 \d y}) \\
 			\label{advection}
 		\end{equation}
 
@@ -73,6 +114,11 @@ Cours de physique numérique}
 		
 		Nous reviendrons plus tard sur les améliorations et les modifications que nous avons apporté à ce schéma initial.		
 		
+		\subsubsection{La condition CFL}
+		
+			Afin que $u_max \d t < \max(\d x, \d y)$, on contrôle le pas de temps avec cette condition afin de ne pas perdre en précision lors des itérations.
+		
+		
 	\subsection{Les conditions aux limites}
 		
 		\subsubsection{Au bord}
@@ -99,51 +145,120 @@ Cours de physique numérique}
 		\begin{align*}
   			X_1 &	= A(\overrightarrow{v},X^n) \\
 			X_2	&	= A(-\overrightarrow{v},X_1)\\
-			X^{n+1}&	= A(\overrightarrow{v},X^n-\frac{1}{2}(X^n-X_2)
+			X^{n+1}&	= A(\overrightarrow{v},X^n-\alpha(X^n-X_2))
 		\end{align*}	
-
-	\subsection{À propos des dimensions du schéma étudié}
+		
+		La méthode est du deuxième ordre si $\alpha = \frac{1}{2} $ car l'erreur induite par l'advection d'ordre 1 est compensée par le terme ajouté dans la troisième advection.
+		
+		Cette méthode est très efficace comme on peut le constater sur les figures \ref{BFECC/No}, on remarque que l'on gagne en précision sur la définition des tourbillons, cependant cette méthode a plusieurs défauts. Pour commencer nous avons eu des problèmes d'instabilité lors de sa mise en place car les conditions aux limites du colorant entrainait une croissance exponentielle de la concentration à la frontière du domaine \ref{instabilite}.
+		
+		\begin{figure}
+			\begin{center}
+			\includegraphics[width=0.7 \textwidth]{instabilite.png}
+			\caption{Maximum de la concentration du colorant en fonction du nombre d'itérations}
+			\label{instabilite}
+			\end{center}
+		\end{figure}
+		
+		Un autre désavantage de la \emph{BFECC} dans sa version d'ordre 2 est l'apparition d'un comportement dispersif. Le schéma présente alors plus d'inconvénients que d'avantages : en effet les tourbillons se désagrègent plutôt que d'être advecté. La solution que nous avons choisie est d'utiliser $\alpha < 0,5$, par exemple $\alpha = 0,25$. En effet avec un coefficient plus faible on réduit l'erreur tout en maintenant un schéma diffusif qui évite la dispersion.
 	
-		Notre schéma numérique représente l'équation de Navier-Stokes adimensionnée :
+	\subsection{La pénalisation}
 
+		Les mouvements de l'obstacle sont saccadés. En effet même si le mouvement est sinusoïdal, l'obstacle peut seulement bouger de case en case. Par conséquent on observait sur le tracé de la traînée des discontiunités au changement de case. Pour éviter ces discontinuités, nous avons appliqué une méthode de pénalisation sur l'obstacle, en effet la discontinuité induite par le mouvement de l'obstacle est celle répercutée par la mise à zéro de la vitesse dans l'obstacle. L'idée est de rendre "perméable" la frontière de l'obstacle en atténuant progressivement la vitesse dans celui-ci. Le schéma utilisé est comparable à une forme d'effet de peau \eqref{penalisation}. 
+		
 		\begin{equation}
-			\partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} = - \nablaf (\phi) + \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u}
-			\label{NS}
-		\end{equation}
-	
-		Où $\overrightarrow{u}$ est la vitesse renormalisée par $U_0$ la vitesse du fluide à l'infini,
-		les longueurs sont adimensionnées par $L$ la largeur de l'obstacle,
-		t est renormalisé par $T_0 = \frac{L}{U_0}$,
-		$\phi$ est la pression divisée par $\rho {U_0}^2$ ($\rho$ est la masse volumique du fluide)
-		et Re est le nombre de Reynolds : Re = $\frac{\rho L U_0}{\eta}$ ($\eta$ est la viscosité cinématique).
-	    
-	   
-		Les distances et le temps sont bien renormalisés par la donnée de la taille de la grille pour les distances et la condition CFL pour le temps.
-	
-		\paragraph{La force de traînée}
-
-		On calcule la force de traînée par intégration du tenseur des contraintes sur un contour carré autour de l'obstacle (soulignons que la force est ici linéique dû au caractère bidimensionnel du modèle) :
-	
-		\begin{equation}
-			\overrightarrow{F_t} = \int_\C [\sigma]\cdot\overrightarrow{\d l} \ \mathrm{où} \ \sigma_{ij} = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)
-			\label{trainee}
+			\forall x \in \mathcal{O}bs, \ \ \
+			u^{n+1}(x)= u^n_{obs}(x) + (u^n(x)-u^n_{obs}(x))\mathrm{e}^{-\alpha\d t}
+			\label{penalisation}
 		\end{equation}
 		
-		Si on adimensionne \eqref{trainee} comme l'équation de Navier-Stokes \eqref{NS} on obtient :
-		\begin{align*}
-			\sigma_{ij} 	& = - p \delta_{ij} + \eta \left(\partd{u_i}{x_j} + \partd{u_j}{x_i}\right)\\
-						& = \rho U_0^2 \left( - \phi \delta_{ij} + \frac{\eta}{L U_0} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right)\right)
-		\end{align*}
-	
-		Ce qui donne pour la force de trainée :
-		\begin{equation}
-			\overrightarrow{F_t} = F_0 \int_\C \left[ - \phi \delta_{ij}+ \frac{1}{\mathrm{Re}} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right) \right] \cdot \d \hat{l_j} \ \mathrm{où} \ F_0 = \rho U_0^2 L
-		\end{equation}
+		La vitesse décroit donc exponentiellement dans l'obstacle avec une constante de temps $\tau= \alpha^{-1}$. Le cas $u(x\in \mathcal{O}bs)=u_{obs}$ correspond au cas limite $\alpha = +\infty$.
+
+
+\section{Le code}
+
+	\subsection{Les options}
+		
+		Elles permettent de donner les caractéristiques de la simulation que l'on souhaite effectuer :
+			\begin{tabular}{|l | l|}
+				Nom & Description\\
+				\hline
+				--hash & Utilise une table de hashage\\
+				\hline
+				
+			\end{tabular}
 		
 
+  --hash, -H            Experimental : use a hash method for speed
+                        improvements (default : false)
+  --hash-size [MAX_HASH_SIZE]
+                        Control the size of the stack for the hash (default :
+                        30)
+  --BFECC, -b           Use the BFECC method for better simulation (default :
+                        false)
+  --tracer TRACERS, -t TRACERS
+                        Use TRACER tracers (default : 10)
+  --Re RE               Reynold's number, (default : 1e4)
+  --nx NX               Grid size in the x direction (default : 150)
+  --ny NY               Grid size in the y direction (default : 80)
+  --ox OX               Obstacle leftest position in the x direction
+  --behind              Tracers behind the obstacle (default : false)
+  --parallel            Use parallel processing for plotting (default : false)
+  --max_parallel        Use parallel processing for processing (default :
+                        false)
+  --nprocess NPROCESS   Number of coprocessors to use (default : 4)
+  --out OUT             Name of the file of the output (default 'out')
+  --tracer-size COLWIDTH
+                        Size of the tracers (default : 1)
+  --assymetry ASSYM, -a ASSYM
+                        Assymetry (default : None)
+  --speed SPEED, -s SPEED
+                        Speed at the left (default : 1)
+  --sinus F A, -S F A   Use a sinus at frequency F and amplitude A (default :
+                        F=5, A=10)
+  --rect WIDTH HEIGHT   The obstacle is a rectangle of size WIDTH*HEIGHT
+                        (default : 40*40).
+  --circle [RADIUS]     The obstacle is a circle of radius RADIUS (default :
+                        40) (overrides --rect option)
+  --refresh REFRESH, -r REFRESH
+                        Refresh rate (default : 50
+  --verbose, -v         Enable verbose output (default : false)
+  --movie, -m           The output is now a sequence of pictures
+  --alpha ALPHA         Absorption coefficient in the obstacle
+  --niter NITER         Number of iterations (def: 10.000)
+MacBook-de-Antoine-Petit-2:Von_Karman antoine$ 
+
+			
+	\subsection{Le calcul du Drag}
+	
+		Comme expliqué dans la section précédente, on calcule la traînée en intégrant le tenseur des contraintes sur un contour autour de l'objet, pour cela on calcule la Jacobienne aux points du contour choisi, puis on calcule $\sigma$ et on somme l'intégrale numériquement. On trace ensuite cette valeur en fonction du temps
 		
 		
+	\subsection{L'obstacle oscillant}
+		
+		 Afin d'inverser la traînée, nous avons dû calculer une fonction permettant de déplacer l'obstacle. Une première permettait de faire bouger l'obstacle verticalement, de manière sinusoïdale. Il suffisait de varier la position $oy$ du rectangle. Nous avons ensuite créé une fonction permettant de le faire tourner autour d'un pivot.
+		 
+	\subsection{Optimisations du code}
+		
+		\subsubsection{Le calcul parallèle}
+		
+		\subsubsection{L'interface graphique}
+		 
 \section{Analyse des résultats}
+
+	\subsection{L'allée de Von Karman}
+	
+		On observe bien l'instabilité, tant pour un obstacle rectangulaire que pour un obstacle circulaire. Bien que l'apparition de l'allée soit plus longue dans le cas circulaire car l'obstacle est mieux profilé. Il faut prendre garde à prendre un espace d'étude suffisamment grand pour éviter que l'allée ne sorte par un des côtés car ensuite elle y reste bloquée.
+	
+	\subsection{La force de trainée}
+	
+		Grâce à la méthode de pénalisation, on obtient une courbe régulière pour la traînée. Dans le cas d'un obstacle 
+	
+	\subsection{La nage du têtard}
+	
+	
+	
+	
 		
 \bibliographystyle{plain}
 \bibliography{Biblio.bib}
