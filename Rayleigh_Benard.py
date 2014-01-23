@@ -52,7 +52,10 @@ parser.add_argument('--speed', '-s', required=False, type=int,
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
                     default=(5,10), dest="sinus", 
                     metavar=('F','A'),
-                    help="Use a sinus at frequency F and amplitude A (default : F=5, A=10)")
+                    help="Use a sinus at frequency F and amplitude A for the oscillation (default : F=5, A=10)")
+parser.add_argument('--rotate', '-R', required=False,
+                    default=False, action='store_true',
+                    help="Use an oscillation.")
 parser.add_argument('--rect', required=False, nargs=2, metavar=("WIDTH", "HEIGHT"),
                     default=(40, 40), 
                     help="The obstacle is a rectangle of size WIDTH*HEIGHT (default : 40*40).")
@@ -110,17 +113,22 @@ class Obstacle:
         self.ymax = ymin + h
         self.posX = xmin
         self.posY = ymin
+        self.diag = int(numpy.sqrt(w**2+h**2))
+        self.max_shape = (self.diag, self.diag)
     def __iter__(self):
         return self
+    def rotation_point(self):
+        # Par défaut, on tourne autour du milieu du côté gauche
+        return (self.xmin, (self.ymax-self.ymin)/2)
     def next(self):
         x = self.posX
         y = self.posY
-        if (self.posX + 1 < xmax): # Si on peut continuer sur la ligne
+        if (self.posX + 1 < self.xmax): # Si on peut continuer sur la ligne
             self.posX+=1
         else :
             self.posY += 1 # Sinon on monte
-            self.posX = xmin
-        if x >= xmin and x < xmax and y >= ymin and y<ymax:
+            self.posX = self.xmin
+        if x >= self.xmin and x < self.xmax and y >= self.ymin and y < self.ymax:
             return [x,y]
         else:
             raise StopIteration
@@ -128,17 +136,22 @@ class Mask:
     def __init__(self):
         self.ptList = []
     def add(self, pt):
-        if not(pt in ptList):
-            ptList.append(pt)
+        if not(pt in self.ptList):
+            self.ptList.append(pt)
             
     # Méthode qui applique le champ factor avec sur la liste de
     # champ*vitesse
-    def apply(self, ls, speed, factor):
+    def apply(self, ls, speed, pivot):
+        px, py = pivot
+        print self.ptList
+        print px, py 
         exp_fact = numpy.exp(-args.alpha*dt)
-        for x,y in ptList:
-            for field,s in zip(ls, speed):
-                # La vitesse en ce point doit être
-                sobs = factor[y,x]*s
+        for field,s in zip(ls, speed):
+            print "Ici"
+            for x,y in self.ptList:
+                print x,y
+                # On se place en référence au point de pivot pour le facteur
+                sobs = numpy.sqrt((y-py)**2+(x-px)**2)*s
                 # On applique la formule
                 field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
                          
@@ -554,7 +567,7 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
     
-def VelocityObstacle(ls, t, speed, pivot_pt=None):
+def VelocityObstacle(ls, t, speed):
     """
     on impose une vitesse égale à la vitesse de l'obstacle sur celui-ci
     en option, rotate qui donne le point autour duquel on tourne. La vitesse est
@@ -564,27 +577,25 @@ def VelocityObstacle(ls, t, speed, pivot_pt=None):
     # On définit la fonction factor par deux fonctions lambdas:
     # si on ne pivote pas, le facteur de rotation vaut 1 pour tout x,y
     # si on pivote, il vaut la position relative du centre de rotation
-    if pivot_pt <> None:
+    if args.rotate:
         # On a un point de pivot, donc notre forme est un rectangle.
         # On récupère les coordonnées de rotation
-        x0, y0 = pivot_pt
-        # On calcule le tableaux des distances
-        factor = np.fromfunction(lambda x,y: numpy.sqrt((x0-x)**2 + (y0-y)**2),
-                                 (int(obs.width), int(obs.height)))
+        x0, y0 = obs.rotation_point()
         # D'une part, la matrice de rotation autour du pivot d'angle A*sin(wt):
         R = mtr.Affine2D()
-        R.rotate_deg_around(x0,y0,amp*sin(2*numpy.pi*freq))
+        R.rotate_deg_around(x0,y0,amp*numpy.sin(2*numpy.pi*freq))
         rangeX = range(0,NX)
         rangeY = range(0,NY) 
-        # Pour tout point de l'obstacle, on fait son image 
+        # Pour tout point de l'obstacle, on fait son image
+        print "Je suis ici"
         mask = Mask()
         for pt in obs:
             # On arrondi
-            x,y = np.floor(R.transform_point(pt))
+            x,y = numpy.floor(R.transform_point(pt))
             # x,y = int(img[0]), int(img[1])
             mask.add([x,y])
         # On parcourt maintenant le masque
-        mask.apply(ls, speed, factor)
+        mask.apply(ls, speed, obs.max_shape)
 
     else:
         # On calcule le facteur de pénalisation
@@ -714,8 +725,8 @@ if use_tracer > 0:
         
 ##### INITIALISATION DE L'OBSTACLE
 xmin = args.ox
-ymin = (NY - args.rect[1])/2
-obs = Obstacle(xmin, ymin, args.rect[0], args.rect[1])
+ymin = (NY - int(args.rect[1]))/2
+obs = Obstacle(int(xmin), int(ymin), int(args.rect[0]), int(args.rect[1]))
 
 ####################
 ###### COEF POUR ADIM
