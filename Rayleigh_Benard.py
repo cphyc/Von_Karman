@@ -669,7 +669,7 @@ def ploter(param, drags, times):
         out_name = args.out + ".png"
     plt.savefig(out_name)
     plt.clf()
-    plt.plot(times[1:],drags[1:])
+    plt.plot(times[50:],drags[50:])
     # plt.quiver(numpy.subtract(u,u0),v, units="dots", width=0.7, 
     #           scale_units="dots", scale=0.5,
     #             hold=False)
