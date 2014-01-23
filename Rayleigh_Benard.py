@@ -119,7 +119,7 @@ class Obstacle:
         return self
     def rotation_point(self):
         # Par défaut, on tourne autour du milieu du côté gauche
-        return (self.xmin, (self.ymax-self.ymin)/2)
+        return (self.xmin, (self.ymax+self.ymin)/2)
     def next(self):
         x = self.posX
         y = self.posY
@@ -151,7 +151,8 @@ class Mask:
                 # On se place en référence au point de pivot pour le facteur
                 sobs = numpy.sqrt((y-py)**2+(x-px)**2)*s
                 # On applique la formule
-                field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
+                # field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
+                field[y,x] = 0
                          
 ###### affichage graphique
 # import matplotlib.pyplot as plt
@@ -487,12 +488,8 @@ def Drag(t):
     try:
         r = float(args.circle)
         Lcont = 2*r
-<<<<<<< HEAD
         Dy=2*r
-=======
-        dx = 2*r
-        dy = 2*r
->>>>>>> ee79fbdae1c7346b7302bb1f374dc0c8424c85a2
+
     except:
         ds = args.rect
         Dx = float(ds[0])
@@ -586,7 +583,7 @@ def VelocityObstacle(ls, t, speed):
         x0, y0 = obs.rotation_point()
         # D'une part, la matrice de rotation autour du pivot d'angle A*sin(wt):
         R = mtr.Affine2D()
-        R.rotate_deg_around(x0,y0,amp*numpy.sin(2*numpy.pi*freq))
+        R.rotate_deg_around(x0, y0, amp*numpy.sin(2*numpy.pi*freq*t))
         rangeX = range(0,NX)
         rangeY = range(0,NY) 
         # Pour tout point de l'obstacle, on fait son image
@@ -673,7 +670,11 @@ def ploter(param, drags, times):
         out_name = args.out + ".png"
     plt.savefig(out_name)
     plt.clf()
-    plt.plot(times[1:],drags[1:])
+    # plt.plot(times[1:],drags[1:])
+    # plt.quiver(numpy.subtract(u,u0),v, units="dots", width=0.7, 
+    #           scale_units="dots", scale=0.5,
+    #             hold=False)
+    # print numpy.min(u),numpy.min(v)
     plt.axis('auto')
     plt.savefig("drag.png")
 
