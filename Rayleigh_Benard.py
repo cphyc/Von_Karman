@@ -48,11 +48,14 @@ parser.add_argument('--tracer-size', required=False, type=int, default=1,
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
                     dest="assym", help="Assymetry (default : None)")
 parser.add_argument('--speed', '-s', required=False, type=int,
-                    default=1, dest="speed", help="Speed at the left (default : 1)")
+                    default=10, dest="speed", help="Speed at the left (default : 10)")
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
                     default=(5,10), dest="sinus", 
                     metavar=('F','A'),
-                    help="Use a sinus at frequency F and amplitude A (default : F=5, A=10)")
+                    help="Use a sinus at frequency F and amplitude A for the oscillation (default : F=5, A=10)")
+parser.add_argument('--rotate', '-R', required=False,
+                    default=False, action='store_true',
+                    help="Use an oscillation.")
 parser.add_argument('--rect', required=False, nargs=2, metavar=("WIDTH", "HEIGHT"),
                     default=(40, 40), 
                     help="The obstacle is a rectangle of size WIDTH*HEIGHT (default : 40*40).")
@@ -110,35 +113,43 @@ class Obstacle:
         self.ymax = ymin + h
         self.posX = xmin
         self.posY = ymin
+        self.diag = int(numpy.sqrt(w**2+h**2))
+        self.max_shape = (self.diag, self.diag)
     def __iter__(self):
         return self
+    def rotation_point(self):
+        # Par défaut, on tourne autour du milieu du côté gauche
+        return (self.xmin, (self.ymax+self.ymin)/2)
     def next(self):
         x = self.posX
         y = self.posY
-        if (self.posX + 1 < xmax): # Si on peut continuer sur la ligne
+        if (self.posX + 1 < self.xmax): # Si on peut continuer sur la ligne
             self.posX+=1
         else :
             self.posY += 1 # Sinon on monte
-            self.posX = xmin
-        if x >= xmin and x < xmax and y >= ymin and y<ymax:
+            self.posX = self.xmin
+        if x >= self.xmin and x < self.xmax and y >= self.ymin and y < self.ymax:
             return [x,y]
-        else:
+        else: # On revient au début
+            self.posX = self.xmin
+            self.posY = self.ymin
             raise StopIteration
 class Mask:
     def __init__(self):
         self.ptList = []
     def add(self, pt):
-        if not(pt in ptList):
-            ptList.append(pt)
+        if not(pt in self.ptList):
+            self.ptList.append(pt)
             
     # Méthode qui applique le champ factor avec sur la liste de
     # champ*vitesse
-    def apply(self, ls, speed, factor):
+    def apply(self, ls, speed, pivot):
+        px, py = pivot
         exp_fact = numpy.exp(-args.alpha*dt)
-        for x,y in ptList:
-            for field,s in zip(ls, speed):
-                # La vitesse en ce point doit être
-                sobs = factor[y,x]*s
+        for field,s in zip(ls, speed):
+            for x,y in self.ptList:
+                # On se place en référence au point de pivot pour le facteur
+                sobs = numpy.sqrt((y-py)**2+(x-px)**2)*s
                 # On applique la formule
                 field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
                          
@@ -499,7 +510,7 @@ def Drag(t):
     J4= jacobienneH(ox-1, ox+Lcont+2, oy-amp)
     
     #Left : on calcule sigma*ds.ex sur la gauche
-    sigma1 = dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
+    sigma1 = -dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
                   + 2./Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
     
     #top
@@ -555,7 +566,7 @@ def PhiGhostPoints(phi):
     ### top               
     phi[-1, :] = phi[-3, :]
     
-def VelocityObstacle(ls, t, speed, pivot_pt=None):
+def VelocityObstacle(ls, t, speed):
     """
     on impose une vitesse égale à la vitesse de l'obstacle sur celui-ci
     en option, rotate qui donne le point autour duquel on tourne. La vitesse est
@@ -565,27 +576,24 @@ def VelocityObstacle(ls, t, speed, pivot_pt=None):
     # On définit la fonction factor par deux fonctions lambdas:
     # si on ne pivote pas, le facteur de rotation vaut 1 pour tout x,y
     # si on pivote, il vaut la position relative du centre de rotation
-    if pivot_pt <> None:
+    if args.rotate:
         # On a un point de pivot, donc notre forme est un rectangle.
         # On récupère les coordonnées de rotation
-        x0, y0 = pivot_pt
-        # On calcule le tableaux des distances
-        factor = np.fromfunction(lambda x,y: numpy.sqrt((x0-x)**2 + (y0-y)**2),
-                                 (int(obs.width), int(obs.height)))
+        x0, y0 = obs.rotation_point()
         # D'une part, la matrice de rotation autour du pivot d'angle A*sin(wt):
         R = mtr.Affine2D()
-        R.rotate_deg_around(x0,y0,amp*sin(2*numpy.pi*freq))
+        R.rotate_deg_around(x0, y0, amp*numpy.sin(2*numpy.pi*freq*t))
         rangeX = range(0,NX)
         rangeY = range(0,NY) 
-        # Pour tout point de l'obstacle, on fait son image 
+        # Pour tout point de l'obstacle, on fait son image
         mask = Mask()
         for pt in obs:
             # On arrondi
-            x,y = np.floor(R.transform_point(pt))
+            x,y = numpy.floor(R.transform_point(pt))
             # x,y = int(img[0]), int(img[1])
             mask.add([x,y])
         # On parcourt maintenant le masque
-        mask.apply(ls, speed, factor)
+        mask.apply(ls, speed, obs.max_shape)
 
     else:
         # On calcule le facteur de pénalisation
@@ -621,7 +629,7 @@ def VelocityObstacle(ls, t, speed, pivot_pt=None):
                 # Le tableaux des vitesses est le le tableaux des positions * vitesse
                 el[y1:y2, x1:x2]=sobs+(el[y1:y2, x1:x2]-sobs)*exp_fact
             
-def ploter(param, drags, times):
+def ploter(param, drags, int_drags, times):
     import matplotlib.pyplot as plt
     # plt.ion()
     args = param['args']
@@ -656,14 +664,23 @@ def ploter(param, drags, times):
     if args.movie:        
         if args.verbose:
             print "Saving image number " + str(param['niter'])
-            out_name = args.out + "_" + str(param['niter']) + ".png"
+        prefix = args.out + "_" + str(param['niter'])
     else:
-        out_name = args.out + ".png"
+        prefix = args.out
+    # Nom pour les sorties
+    out_name = prefix + ".png"
+    drag_name = "drag_" + prefix + ".png"
+    
     plt.savefig(out_name)
     plt.clf()
-    plt.plot(times[1:],drags[1:])
+    plt.plot(times[50:],drags[50:])
+    plt.plot(times[50:],int_drags[50:])
+    # plt.quiver(numpy.subtract(u,u0),v, units="dots", width=0.7, 
+    #           scale_units="dots", scale=0.5,
+    #             hold=False)
+    # print numpy.min(u),numpy.min(v)
     plt.axis('auto')
-    plt.savefig("drag.png")
+    plt.savefig(drag_name)
 
     ###### Gael's tricks interactif
     # if 'qt' in plt.get_backend().lower():
@@ -715,8 +732,8 @@ if use_tracer > 0:
         
 ##### INITIALISATION DE L'OBSTACLE
 xmin = args.ox
-ymin = (NY - args.rect[1])/2
-obs = Obstacle(xmin, ymin, args.rect[0], args.rect[1])
+ymin = (NY - int(args.rect[1]))/2
+obs = Obstacle(int(xmin), int(ymin), int(args.rect[0]), int(args.rect[1]))
 
 ####################
 ###### COEF POUR ADIM
@@ -776,6 +793,7 @@ dt_exp = CFL_explicite()
 
 # On initialise le tableau des temps et des drags
 drags = []
+int_drags =[]
 times = []
 
 for niter in xrange(nitermax):
@@ -865,6 +883,10 @@ for niter in xrange(nitermax):
     # On met à jour les drags et le temps pour faire le suivi
     drag = Drag(t)
     drags += [drag]
+    if niter > 50:
+        int_drags += [int_drags[-1]+u0*dt*drag]
+    else:
+        int_drags += [0]
     times += [t]
     
     if (niter%args.refresh==0):
@@ -888,7 +910,7 @@ for niter in xrange(nitermax):
                "dx":dx, "dy":dy, "niter":niter, "dt":dt}
         if args.parallel or args.max_parallel:
             j.append((niter,
-                    jober.submit(ploter,(param, drags, times),(DeltaY,)
+                    jober.submit(ploter,(param, drags, int_drags, times),(DeltaY,)
                                  ,("matplotlib.pyplot",) )))
             # On récupère et supprime le 1er él,
             # et on attend la fin de son exécution
@@ -897,7 +919,7 @@ for niter in xrange(nitermax):
                 print "We're at ",niter,". Waiting for the end of :", niter0
             wait_next()
         else:
-            ploter(param, drags, times)
+            ploter(param, drags, int_drags, times)
 
 if args.parallel or args.max_parallel:
     print "Waiting the end of the threads"
