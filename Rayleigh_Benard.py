@@ -67,6 +67,8 @@ parser.add_argument('--refresh', '-r',type=int,
                     dest='refresh', help="Refresh rate (default : 50")
 parser.add_argument('--verbose', '-v', action="store_true",
                     required=False, help="Enable verbose output (default : false)")
+parser.add_argument('--drag_only', action="store_true",
+                    required=False, help="Only outputs the drag")
 parser.add_argument('--movie', '-m', required=False, action="store_true",
                     help="The output is now a sequence of pictures")
 parser.add_argument('--alpha', required=False, default=1000., type=float,
@@ -636,6 +638,9 @@ def ploter(param, drags, int_drags, times):
     t = param['t']
     T = param['T']
 
+    if args.drag_only:
+        print int_drags[-1]
+        return
     ## FIGURE draw works only if plt.ion()
     plotlabel = "t = %1.5f" %(t)
     plt.title(plotlabel)
@@ -888,8 +893,9 @@ for niter in xrange(nitermax):
     else:
         int_drags += [0]
     times += [t]
-    
-    if (niter%args.refresh==0):
+    if args.drag_only:
+        print t, int_drags[-1]
+    elif (niter%args.refresh==0):
         if args.verbose :
             
             ###### logfile
@@ -908,6 +914,7 @@ for niter in xrange(nitermax):
 
         param={"args":args, "t":t, "T":T, "nitermax" : nitermax,
                "dx":dx, "dy":dy, "niter":niter, "dt":dt}
+
         if args.parallel or args.max_parallel:
             j.append((niter,
                     jober.submit(ploter,(param, drags, int_drags, times),(DeltaY,)
