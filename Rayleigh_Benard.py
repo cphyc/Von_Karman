@@ -27,7 +27,7 @@ parser.add_argument('--Re', required=False, default=float(1e4),
                     dest='re',help="Reynold's number, (default : 1e4)")
 parser.add_argument('--nx', required=False, type=int, default=150,
                     help="Grid size in the x direction (default : 150)")
-parser.add_argument('--ny', required=False, type=int, default=80,
+parser.add_argument('--ny', required=False, type=int, default=100,
                     help="Grid size in the y direction (default : 80)")
 
 parser.add_argument('--ox', required=False, type=int, default=15,
@@ -487,8 +487,8 @@ def Drag(t):
     try:
         r = float(args.circle)
         Lcont = 2*r
-        Dy=2*r
-
+        Dy = 2*r
+        Dx = 2*r
     except:
         ds = args.rect
         Dx = float(ds[0])
