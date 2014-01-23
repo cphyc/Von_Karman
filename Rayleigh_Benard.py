@@ -27,7 +27,7 @@ parser.add_argument('--Re', required=False, default=float(1e4),
                     dest='re',help="Reynold's number, (default : 1e4)")
 parser.add_argument('--nx', required=False, type=int, default=150,
                     help="Grid size in the x direction (default : 150)")
-parser.add_argument('--ny', required=False, type=int, default=100,
+parser.add_argument('--ny', required=False, type=int, default=80,
                     help="Grid size in the y direction (default : 80)")
 
 parser.add_argument('--ox', required=False, type=int, default=15,
@@ -48,7 +48,7 @@ parser.add_argument('--tracer-size', required=False, type=int, default=1,
 parser.add_argument('--assymetry', '-a', required=False, type=int, default=0,
                     dest="assym", help="Assymetry (default : None)")
 parser.add_argument('--speed', '-s', required=False, type=int,
-                    default=1, dest="speed", help="Speed at the left (default : 1)")
+                    default=10, dest="speed", help="Speed at the left (default : 10)")
 parser.add_argument('--sinus', '-S', nargs=2, required=False,
                     default=(5,10), dest="sinus", 
                     metavar=('F','A'),
@@ -151,8 +151,7 @@ class Mask:
                 # On se place en référence au point de pivot pour le facteur
                 sobs = numpy.sqrt((y-py)**2+(x-px)**2)*s
                 # On applique la formule
-                # field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
-                field[y,x] = 0
+                field[y,x] = sobs + (field[y,x] - sobs)*exp_fact
                          
 ###### affichage graphique
 # import matplotlib.pyplot as plt
@@ -511,7 +510,7 @@ def Drag(t):
     J4= jacobienneH(ox-1, ox+Lcont+2, oy-amp)
     
     #Left : on calcule sigma*ds.ex sur la gauche
-    sigma1 = dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
+    sigma1 = -dy*(-phi[oy-amp:oy+amp+Lcont-1, ox-2]
                   + 2./Re*J1[0,0,:])   #on s'arrête avant le coin en haut à gauche
     
     #top
@@ -537,10 +536,10 @@ def VelocityGhostPoints(u,v):
     u[:, -1] = u[:, -2] 
     v[:, -1] = v[:, -2] 
     ### bottom     
-    u[0,  :] = u[2,  :] 
+    u[0,  :] = -u[2,  :] 
     v[0,  :] = v[2,  :] 
     ### top      
-    u[-1, :] = u[-3, :] 
+    u[-1, :] = -u[-3, :] 
     v[-1, :] = v[-3, :] 
 
 def TraceurGhostPoint(T):
@@ -670,7 +669,7 @@ def ploter(param, drags, times):
         out_name = args.out + ".png"
     plt.savefig(out_name)
     plt.clf()
-    # plt.plot(times[1:],drags[1:])
+    plt.plot(times[1:],drags[1:])
     # plt.quiver(numpy.subtract(u,u0),v, units="dots", width=0.7, 
     #           scale_units="dots", scale=0.5,
     #             hold=False)
