@@ -476,12 +476,8 @@ def Drag(t):
     try:
         r = float(args.circle)
         Lcont = 2*r
-<<<<<<< HEAD
-        Dy=2*r
-=======
-        dx = 2*r
-        dy = 2*r
->>>>>>> ee79fbdae1c7346b7302bb1f374dc0c8424c85a2
+        Dy = 2*r
+        Dx = 2*r
     except:
         ds = args.rect
         Dx = float(ds[0])
