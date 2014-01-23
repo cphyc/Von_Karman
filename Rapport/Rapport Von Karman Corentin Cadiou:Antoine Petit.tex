@@ -27,29 +27,84 @@ Cours de physique numérique}
 
 	\subsection{Le calcul des champs de vitesses}
 		
-		Le champ de vitesse est calculé en plusieurs étapes. Tout d'abord on effectue une advection pure au moyen du schéma \eqref{schema advection u} d'ordre 2 en espace. On note $(u,v)$ le champ de vitesse
+		Le champ de vitesse est calculé en plusieurs étapes. Tout d'abord on effectue une advection pure au moyen du schéma \eqref{advection} d'ordre 2 en espace. On note $(u,v)$ le champ de vitesse et $(u^*,v*)$ le champ résultant de la première étape.
 		
 		\begin{equation}
-			u_{i \ j}^{n+1} = u_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(u_{i+1 \ j}^n-u_{i-1 \ j}^n) + v_{i \ j}^{n}(u_{i \ j+1}^n-u_{i \ j-1}^n)) \\
-			\label{schema advection u}
+			{u^*}_{i \ j}^{n} = u_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(u_{i+1 \ j}^n-u_{i-1 \ j}^n) + v_{i \ j}^{n}(u_{i \ j+1}^n-u_{i \ j-1}^n)) \\
+			\label{advection}
 		\end{equation}
-		\[ 	v_{i \ j}^{n+1} = v_{i \ j}^n - \frac{\d t}{2 \d x}( u_{ij}^n(v_{i+1 \ j}^n-v_{i-1 \ j}^n) + v_{i \ j}^{n}(v_{i \ j+1}^n-v_{i \ j-1}^n))
-		\]
+
 		
+		On tient ensuite compte de l'obstacle, pour cela, on impose la nullité de la vitesse à l'intérieur de l'obstacle à la fin de l'advection.
 		
+		Cependant nous n'avons pas tenu compte ici du champ de pression et de la diffusion. On ajoute donc ensuite la contribution de la diffusion à la vitesse au moyen du schéma \eqref{Laplacien} et on note $(u^**,v**)$ le champ résultant de l'étape de diffusion.
+		
+		\begin{equation}
+			{u^{**}}_{i j}^n=	{u^*}_{i \ j}^{n} + 
+							\frac{\d t}{\mathrm{Re}} \left(\frac{{u^*}_{i+1 \ j}^n + {u^*}_{i-1 \ j}^n}{{\d x}^2} + \frac{{u^*}_{i \ j+1}^n + {u^*}_{i \ j-1}^n}{{\d y}^2} - \frac{{u^*}_{i \ j}^{n}}{2({\d x}^2 + {\d y}^2)} \right)
+			\label{Laplacien}
+		\end{equation}
+		
+		On annule comme précédemment la vitesse dans l'obstacle.
+		
+		Cependant, lors de ces calculs, on a perdu l'incompressibilité du fluide, afin de garantir l'incompressibilté du fluide, on a recours à une projection de la vitesse. En effet à cette étape, $\overrightarrow{u^{**}}$ vérifie seulement l'équation partielle
+		\[ \partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} =  \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u} \],
+		c'est-à-dire sans le gradient de la pression, en conséquence, $\overrightarrow{u}$ n'est pas de divergence nulle :
+		\begin{align*}
+			\nablaf \cdot \overrightarrow{u^{**}} 	& = \nablaf \cdot \overrightarrow{u}	& + &\nablaf \cdot ( [\mathrm{Schéma \ d'advection}] + [\mathrm{Schéma \ de \ difffusion}])\\
+													& = 0 								&+ & (\nablaf \cdot \nablaf) \phi & &\\
+													& = \Delta \phi & &\\
+		\end{align*}
+		
+		L'idée est donc de calculer la pression via l'inversion de ce laplacien, puis de retrancher le gradient de la pression à ${u^{**}}^n$ pour obtenir $u^{n+1}$. On commence donc par calculer la pression vian l'invesrion du système linéaire induit par le schéma choisi pour le laplacien :
+		\[ \phi = L^{-1}(\nablaf \cdot \overrightarrow{u^{**}})\]
+		
+		Où $L$ est la matrice du schéma du laplacien.
+		
+		Ensuite on calcule $(u^{n+1},v^{n+1})$ par projection \eqref{proj}.
+		
+		\begin{equation}
+			u^{n+1}_{i \ j}={u^{**}}_{i \ j}^{n+1} - \frac{\phi^n_{i+1 \ j}-\phi^n_{i-1 \ j}}{2\d x}
+			\label{proj}
+		\end{equation}
+		\[	v^{n+1}_{i \ j}={v^{**}}_{i \ j}^{n+1} - \frac{\phi^n_{i \ j+1}-\phi^n_{i \ j-1}}{2\d y} \]
+
+		La vitesse dans l'obstacle n'est pas parfaitement nulle, mais ceci est nécessaire car si l'on faisait comme précédemment, on perdrait l'incompressibilité du fluide. Il y a donc une vitesse résiduelle sur le bord de l'obstacle, en conséquence le schéma est d'ordre 1 en espace et en temps.
+		
+		Nous reviendrons plus tard sur les améliorations et les modifications que nous avons apporté à ce schéma initial.		
 		
 	\subsection{Les conditions aux limites}
 		
 		\subsubsection{Au bord}
+			Afin de pouvoir calculer les dérivées sur toute la zone de simulation, on rajoute autour de la zone "physique" un contour de points dits fantômes, on fixe en ces points la valeur afin de garantir des conditions au limites : 
+			\begin{itemize}
+				\item À gauche : $(u,v) = (U_0,0)$ afin de simuler l'écoulement.
+				\item Sur En haut et en bas et à droite, on recopie les valeurs, ce n'est pas très gênant car les points sont très vite advectés en dehors de la simulation
+			\end{itemize}
 		
 		\subsubsection{Sur l'obstacle}
 
+			Comme vu précédemment, l'obstacle est modélisé par une zone de vitesse nulle, c'est pour cela qu'à chaque calcul de la vitesse, on annule la vitesse dans l'obstacle afin de maintenir la condition. Nous avons modifié cette condition dans la suite pour permetrre à l'obstacle de bouger.
 
-
+	\subsection{La visualisation des tourbillons}
+	
+		La technique choisie pour observer les vortex est celle de l'advection par le champ de vitesse d'un traceur : Pour cela nous avons essayé deux solutions différentes : une première consistait à insérer un colorant à une concentration 1 en divers points à la gauche de l'obstacle, puis à le laisser transporter par le champ de vitesse. La seconde consistait à colorer l'ensemble de la simulation à part l'obstacle qui absorbait le colorant (on annule la valeur de la concentration de colorant sur l'obstacle), dans ce cas-ci les tourbillons sont visualisé par le déficit local de colorant.
+		
+		Cependant ces technique manquait de précision du fait de la diffusion numérique due au schéma d'advection, rapidement on ne distinguait plus les zones très colorés, c'est pourquoi nous avons utilisé un autre schéma pour l'advection du colorant basé sur la méthode dite \emph{BFECC}.
+		
+	\subsection{\emph{Back and forth error compensation and correction methods (BFECC)}}
+		Cette méthode décrite par Kim \cite{Advect} et Dupont \cite{BFECC} consiste à appliquer successivement trois fois le schéma d'advection en aller retour pour compenser le terme linéaire de dispersion numérique.
+		
+		Si on nomme $A(\overrightarrow{v},X)$ l'opérateur d'advection par $\overrightarrow{v}$ du champ $X$, le schéma de la \emph{BFECC} est le suivant :
+		\begin{align*}
+  			X_1 &	= A(\overrightarrow{v},X^n) \\
+			X_2	&	= A(-\overrightarrow{v},X_1)\\
+			X^{n+1}&	= A(\overrightarrow{v},X^n-\frac{1}{2}(X^n-X_2)
+		\end{align*}	
 
 	\subsection{À propos des dimensions du schéma étudié}
 	
-		Notre schéma numérique représente l'équation de Navier-Stokes 		adimensionnée :
+		Notre schéma numérique représente l'équation de Navier-Stokes adimensionnée :
 
 		\begin{equation}
 			\partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} = - \nablaf (\phi) + \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u}
@@ -64,13 +119,6 @@ Cours de physique numérique}
 	    
 	   
 		Les distances et le temps sont bien renormalisés par la donnée de la taille de la grille pour les distances et la condition CFL pour le temps.
-	
-	    
-		Cependant quelques problèmes demeurent : 
-		\begin{itemize}
-			\item $u$ et $v$ pas vraiment  admiensionnés par $U_0$ 
-			\item À aucun moment on ne tient compte de la pression réelle ou de la masse volumique
-		\end{itemize}
 	
 		\paragraph{La force de traînée}
 
@@ -92,11 +140,10 @@ Cours de physique numérique}
 			\overrightarrow{F_t} = F_0 \int_\C \left[ - \phi \delta_{ij}+ \frac{1}{\mathrm{Re}} \left(\partd{\hat{u_i}}{\hat{x_j}} + \partd{\hat{u_j}}{\hat{x_i}}\right) \right] \cdot \d \hat{l_j} \ \mathrm{où} \ F_0 = \rho U_0^2 L
 		\end{equation}
 		
-		\cite{Advect}
-		\cite{BFECC}
+
 		
 		
-\section{Anlyse des résultats}
+\section{Analyse des résultats}
 		
 \bibliographystyle{plain}
 \bibliography{Biblio.bib}
