@@ -11,6 +11,10 @@ import scipy.sparse.linalg as lg
 import argparse
 import matplotlib.path as mpa
 import matplotlib.transforms as mtr
+
+# import pyximport; pyximport.install()
+import tools as to
+
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
                     help = 'Experimental : use a hash method for speed improvements (default : false)',
@@ -198,13 +202,13 @@ def CFL_explicite():
 # Calcule au (resp. av) et 1. - au
 def A(field, dt, dx):
     rep = abs(field[1:-1,1:-1]) * dt / dx
-    return (rep, 1. - rep)
+    return (rep, 1 - rep)
 
 def M(field, _) :
     M = numpy.sign(numpy.sign(field[1:-1,1:-1]) + 1.)
-    return (1. - M, M)
-####
-def Advect(u, v, p):
+    return (1 - M, M)
+
+def Advect(u, v, p, dx, dy, dt, args):
     """
     Calcule la valeur interpolee qui correspond 
     a l'advection a la vitesse au temps n.
@@ -287,15 +291,15 @@ def Advect(u, v, p):
             # au = abs(u[1:-1,1:-1]) * dt/dx 
             # av = abs(v[1:-1,1:-1]) * dt/dy
 
-            # au_1 = 1. - au
-            # av_1 = 1. - av
+            au_1 = numpy.subtract(1,au)
+            av_1 = numpy.subtract(1, av)
             
             # Matrices des coefficients respectivement 
             # central, exterieur, meme x, meme y     
             Cc = (au_1) * (av_1) 
             Ce = au * av
-            Cmx = (1. - au) * av
-            Cmy = (1. - av) * au
+            Cmx = au_1 * av
+            Cmy = av_1 * au
 
         # On stocke dans la table de hashage
         if args.do_hash :
@@ -359,8 +363,6 @@ def BuildLaPoisson():
     offsets = numpy.array([-1,0,1])                    
     DXX = sp.dia_matrix((dataNXi,offsets), shape=(NXi,NXi)) * dx_2
     DYY = sp.dia_matrix((dataNYi,offsets), shape=(NYi,NYi)) * dy_2
-    #print DXX.todense()
-    #print DYY.todense()
     
     ####### 2D Laplace operator
     LAP = sp.kron(sp.eye(NYi,NYi), DXX) + sp.kron(DYY, sp.eye(NXi,NXi))
@@ -376,11 +378,6 @@ def BuildLaPoisson():
     dataNYNXi[0][1] = -1 * dx_2
 
     LAP0 = sp.dia_matrix((dataNYNXi,offset), shape=(NYi*NXi,NYi*NXi))
-    
-    # tmp = LAP + LAP0
-    # print LAP.todense()
-    # print LA0.todense()
-    # print tmp.todense()
   
     return LAP + LAP0
 
@@ -699,8 +696,8 @@ def ploter(param, drags, int_drags, times):
 ###### Taille adimensionnee du domaine
 ### aspect_ratio = LY/LX  
 
-aspect_ratio = float(args.ny*1.0/args.nx)
-LY = float(1.)
+aspect_ratio = float(args.ny)/args.nx
+LY = 1.
 LX = LY/aspect_ratio
 
 ###### GRID RESOLUTION
@@ -747,15 +744,15 @@ obs = Obstacle(int(xmin), int(ymin), int(args.rect[0]), int(args.rect[1]))
 DeltaU = float(1/Re)
 
 ###### Éléments différentiels 
-dx = LX/(nx-1)
-dy = LY/(ny-1)
+dx = 1.*LX/(nx-1)
+dy = 1.*LY/(ny-1)
 
-dx_2 = 1./(dx*dx)
-dy_2 = 1./(dy*dy)
+dx_2 = 1/(dx*dx)
+dy_2 = 1/(dy*dy)
 
 
 ### ATTENTION: dt_init calculer la CFL a chaque iteration... 
-dt = float(1)
+dt = 1.
 
 t = 0. # total time
 
@@ -800,11 +797,16 @@ dt_exp = CFL_explicite()
 drags = []
 int_drags =[]
 times = []
+def min (x,y):
+    if x<y :
+        return x
+    else: 
+        return y
 
 for niter in xrange(nitermax):
     ###### Check dt
     dt_adv = CFL_advection()
-    dt_new = min(dt_adv,dt_exp)
+    dt_new = min(dt_adv, dt_exp)
     
     if (dt_new < dt):
         dt = dt_new
@@ -818,14 +820,14 @@ for niter in xrange(nitermax):
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
     def lets_advect(p, BFECC, speeds):
         if BFECC :
-            p3 = Advect(u, v, p)          
-            p2 = Advect(-u, -v, p3)
-            prect = p +1./4*numpy.subtract(p,p2)
-            p1 = Advect(u, v, prect)
+            p3 = to.Advect(u, v, p, dx , dy, dt, args)          
+            p2 = to.Advect(-u, -v, p3, dx , dy, dt, args)
+            prect = p +0.25*numpy.subtract(p,p2)
+            p1 = to.Advect(u, v, prect, dx , dy, dt, args)
             VelocityObstacle(p1, t, speeds)
             return p1
         else :
-            p = Advect(u, v, p)
+            p = to.Advect(u, v, p, dx , dy, dt, args)
             VelocityObstacle(p,t, speeds)
             return p
         
