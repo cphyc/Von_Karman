@@ -1,6 +1,7 @@
 \documentclass{beamer}
 \usepackage[french]{babel}
 \usepackage[utf8]{inputenc}
+\usepackage{amsmath}
 \title{Projet de physique Numérique - Allée de Von Karman}
 \subtitle{Simulation python}
 \author[Cadiou Corentin \and Petit Antoine] % (optional, for multiple authors)
@@ -8,7 +9,7 @@
 \date{Janvier 2014}
 \subject{Physique numérique}
 
-\AtBeginSection[]
+\AtBeginSubsection[]
 {
   \begin{frame}
     \frametitle{Table of Contents}
@@ -20,7 +21,7 @@
 \begin{document}
   \frame{\titlepage}
 
-  \section{Historique}
+  \section{Mise en place de la simulation}
   \subsection{Point de départ}
   \begin{frame}
     \frametitle{Point de départ}
@@ -59,19 +60,59 @@
     \[ \forall (x,y) \in \O : u(x,y) = v(x,y) = 0 \]
     On visualisait en regardant le champ de vitesse \dots
     \begin{center}
-      \includegraphics[height=0.7\textheight]{quiver.png}
+      \includegraphics[height=0.6\textheight]{quiver.png}
     \end{center}
   \end{frame}
   \begin{frame}
     \frametitle{Traceurs}
     \dots avant de remplacer cet affichage par la visualisation de
-    traceurs, c'est-à-dire un champ supplémentaire noté $T$ \emph{passif
-    mais advecté}.
+    traceurs, c'est-à-dire un champ supplémentaire noté $T$ advecté et
+    passif tel que :
+    \begin{align*}
+      \forall n\in \mathbb{Z}\quad T(0,n \Delta, t>0) & = 1\\
+      \forall (x,y)\quad T(x,y,0) & = 0
+    \end{align*}
     \begin{center}
-      \includegraphics[height=0.7\textheight]{tracer0.png}
+      \includegraphics[height=0.6\textheight]{tracer0.png}
     \end{center}
     Ce n'est pas satisfaisant pour observer les tourbillons.
-
   \end{frame}
+  
+  \begin{frame}
+    \frametitle{Traceurs ``derrière''}
+    Idée : l'obstacle impose $\forall (x,y) \in \O: T^n(x,y) = 0$ et on met
+    initialement  $\forall (x,y) \not\in \O : T^0 = 1$.
+    \begin{center}
+      \includegraphics[height=0.6\textheight]{tracer1.png}
+    \end{center}
+  \end{frame}
+  \subsection{BFECC}
+  \begin{frame}
+    \frametitle{Back and Forth Error Compensation and Correct }
+    On effectue les pas suivants pour un champ scalaire $X^n(x,y)$, un
+    champ de vitesse $\vec{v}$ et un opérateur d'advection
+    $A(\vec{v},X)$ :
+    \begin{align}
+      X_1 & = A(\vec{v},X^n) \\
+      X_2 & = A(-\vec{v},X_1) \\
+      X^{n+1} & = A(\vec{v},X - \alpha(X^n - X_2))
+    \end{align}
+    Dans la littérature, $\alpha = \frac{1}{2}$.
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{BFECC instable}
+    Dans nos conditions (pas de diffusion physique, haut Reynolds)
+    : BFECC instable
+    \begin{center}
+      \includegraphics[height=0.8\textheight]{instab_BFECC.png}
+    \end{center}
+  \end{frame}
+  \begin{frame}
+    \frametitle{Solution : diminuer $\alpha$}
+    Si on diminue $\alpha$, la diffusion numérique augmente :
+  \end{frame}
+  
+  \subsection{L'obstacle qui bouge}
   
 \end{document}
