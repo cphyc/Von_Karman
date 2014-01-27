@@ -1,0 +1,77 @@
+\documentclass{beamer}
+\usepackage[french]{babel}
+\usepackage[utf8]{inputenc}
+\title{Projet de physique Numérique - Allée de Von Karman}
+\subtitle{Simulation python}
+\author[Cadiou Corentin \and Petit Antoine] % (optional, for multiple authors)
+{Cadiou Corentin \and Petit Antoine}
+\date{Janvier 2014}
+\subject{Physique numérique}
+
+\AtBeginSection[]
+{
+  \begin{frame}
+    \frametitle{Table of Contents}
+    \tableofcontents[currentsubsection]
+  \end{frame}
+}
+
+\renewcommand\O{\mathcal{O}}
+\begin{document}
+  \frame{\titlepage}
+
+  \section{Historique}
+  \subsection{Point de départ}
+  \begin{frame}
+    \frametitle{Point de départ}
+    Code initial : simulation d'une cellule de Rayleigh-Benard.
+
+    Schéma d'advection :
+    \begin{itemize}
+      \item advection 1/2 lagrangienne -> diffusion (u,v);
+      \item advection 1/2 lagrangienne -> diffusion (T);
+    \end{itemize}
+  \end{frame}
+  \begin{frame}
+    \frametitle{Point de départ}
+    Premières modifications :
+    \begin{itemize}
+      \item<1-> suppression de la température;
+      \item<2-> modification des conditions aux limites:
+        \begin{itemize}
+          \item<3-> haut et bas : 
+            \[ \left. \frac{\partial u}{\partial y}\right|_{y=0,H} = 
+            \left. \frac{\partial v}{\partial y}\right|_{y=0,H} = 0 \] 
+          \item<4-> droite :
+            \[ \left. \frac{\partial u}{\partial x}\right|_{x=W} = 
+            \left. \frac{\partial v}{\partial y}\right|_{y=W} = 0 \]
+          \item<5-> gauche :
+            \[ \left. \frac{\partial u}{\partial x}\right|_{x=0} = u_0
+            \qquad \left. \frac{\partial v}{\partial x}\right|_{x=0} = 0\]
+        \end{itemize}
+    \end{itemize}
+  \end{frame}
+
+  \subsection{Incorporation du problème}
+  \begin{frame}
+    \frametitle{Obstacle}
+    Pour commencer, nous avons imposé un obstacle fixe (noté $\O$) :
+    \[ \forall (x,y) \in \O : u(x,y) = v(x,y) = 0 \]
+    On visualisait en regardant le champ de vitesse \dots
+    \begin{center}
+      \includegraphics[height=0.7\textheight]{quiver.png}
+    \end{center}
+  \end{frame}
+  \begin{frame}
+    \frametitle{Traceurs}
+    \dots avant de remplacer cet affichage par la visualisation de
+    traceurs, c'est-à-dire un champ supplémentaire noté $T$ \emph{passif
+    mais advecté}.
+    \begin{center}
+      \includegraphics[height=0.7\textheight]{tracer0.png}
+    \end{center}
+    Ce n'est pas satisfaisant pour observer les tourbillons.
+
+  \end{frame}
+  
+\end{document}
