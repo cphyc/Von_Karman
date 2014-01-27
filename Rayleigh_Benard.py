@@ -13,7 +13,7 @@ import matplotlib.path as mpa
 import matplotlib.transforms as mtr
 
 # import pyximport; pyximport.install()
-import tools as to
+#import tools as to
 
 parser = argparse.ArgumentParser(description='Von Karman streets.')
 parser.add_argument('--hash', '-H', required=False, action='store_true',
@@ -820,14 +820,14 @@ for niter in xrange(nitermax):
     ###### Etape d'advection semi-lagrangienne utilisant la méthode BFECC
     def lets_advect(p, BFECC, speeds):
         if BFECC :
-            p3 = to.Advect(u, v, p, dx , dy, dt, args)          
-            p2 = to.Advect(-u, -v, p3, dx , dy, dt, args)
+            p3 = Advect(u, v, p, dx , dy, dt, args)          
+            p2 = Advect(-u, -v, p3, dx , dy, dt, args)
             prect = p +0.25*numpy.subtract(p,p2)
-            p1 = to.Advect(u, v, prect, dx , dy, dt, args)
+            p1 = Advect(u, v, prect, dx , dy, dt, args)
             VelocityObstacle(p1, t, speeds)
             return p1
         else :
-            p = to.Advect(u, v, p, dx , dy, dt, args)
+            p = Advect(u, v, p, dx , dy, dt, args)
             VelocityObstacle(p,t, speeds)
             return p
         
