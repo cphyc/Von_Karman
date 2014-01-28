@@ -77,6 +77,8 @@ parser.add_argument('--movie', '-m', required=False, action="store_true",
                     help="The output is now a sequence of pictures")
 parser.add_argument('--alpha', required=False, default=1000., type=float,
                     help="Absorption coefficient in the obstacle")
+parser.add_argument('--BFECC_param', required=False, default=.25, type=float,
+                    help="BFECC parameter.")
 parser.add_argument('--niter', required=False, type=int, default=10000,
                     help="Number of iterations (def: 10.000)")
 
@@ -627,7 +629,7 @@ def VelocityObstacle(ls, t, speed):
             for el,sobs in zip(ls,speed):
                 # Le tableaux des vitesses est le le tableaux des positions * vitesse
                 el[y1:y2, x1:x2]=sobs+(el[y1:y2, x1:x2]-sobs)*exp_fact
-            
+
 def ploter(param, drags, int_drags, times):
     import matplotlib.pyplot as plt
     # plt.ion()
@@ -639,7 +641,7 @@ def ploter(param, drags, int_drags, times):
         print int_drags[-1]
         return
     ## FIGURE draw works only if plt.ion()
-    plotlabel = "t = %1.5f" %(t)
+    plotlabel = "t = %1.5f    beta = 1000" %(t)
     plt.title(plotlabel)
     #plt.imshow(numpy.sqrt((u[1:-1,1:-1])**2 + (v[1:-1,1:-1])**2), origin="lower")
     #plt.imshow(u[1:-1, 1:-1], origin="lower")
@@ -655,7 +657,7 @@ def ploter(param, drags, int_drags, times):
     #hold=False)
     x = args.nx
     y = args.ny
-    plt.axis([0,x,0,y])
+    plt.axis("image")
     # plt.draw()
     plt.grid()
     #plt.plot(vstar[75,:])
@@ -822,7 +824,7 @@ for niter in xrange(nitermax):
         if BFECC :
             p3 = Advect(u, v, p, dx , dy, dt, args)          
             p2 = Advect(-u, -v, p3, dx , dy, dt, args)
-            prect = p +0.25*numpy.subtract(p,p2)
+            prect = p + args.BFECC_param * numpy.subtract(p,p2)
             p1 = Advect(u, v, prect, dx , dy, dt, args)
             VelocityObstacle(p1, t, speeds)
             return p1
