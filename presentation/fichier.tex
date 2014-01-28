@@ -31,8 +31,8 @@
 
     Schéma d'advection :
     \begin{itemize}
-      \item advection 1/2 lagrangienne -> diffusion (u,v);
-      \item advection 1/2 lagrangienne -> diffusion (T);
+      \item advection 1/2 lagrangienne $\rightarrow$ diffusion (u,v);
+      \item advection 1/2 lagrangienne $\rightarrow$ diffusion (T);
     \end{itemize}
   \end{frame}
   \begin{frame}
@@ -118,27 +118,30 @@
   
   \subsection{L'obstacle qui oscille}
   \begin{frame}
-    \frametitle{Idée naive}
+    \frametitle{Idée naïve}
     On se contente de définir $\O(t) = T_{\vect{v(t)}}\ \O(0)$ avec 
     \begin{itemize}
       \item $T_\vect{v}$ l'opérateur de translation ;
       \item $\vect{v}$ la vitesse de l'obstacle, par exemple $\sin(\omega
         t)\vect{u_y}$.
     \end{itemize}
-    avec $\forall (x,y)\in\O\quad \phi(x,y) = 0$,\\
-    avec $\phi$ un champ scalaire.
+    On impose pour $\phi^n$ un champ :
+    \[\forall (x,y)\in\O\quad \phi^n(x,y) = 0\]
   \end{frame}
   \begin{frame}
     \frametitle{Deux problèmes}
     Discontinuités de la force de trainée.
-
-    \centering \includegraphics[height=0.7\textheight]{penalisation.png}
+    \begin{center}
+      \includegraphics[height=0.7\textheight]{penalisation.png}
+    \end{center}
   \end{frame}
+
   \begin{frame}
     \frametitle{Deux problèmes}
     ``Absorption'' des vecteurs par l'obstacle.
-
-    \centering \includegraphics[height=0.7\textheight]{absorption.png}
+    \begin{center}
+      \includegraphics[height=0.7\textheight]{absorption.png}
+    \end{center}
   \end{frame}
 
   \begin{frame}
