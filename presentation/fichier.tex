@@ -83,7 +83,7 @@
     Idée : l'obstacle impose $\forall (x,y) \in \O: T^n(x,y) = 0$ et on met
     initialement  $\forall (x,y) \not\in \O : T^0 = 1$.
     \begin{center}
-      \includegraphics[height=0.6\textheight]{tracer1.png}
+%      \includegraphics[height=0.6\textheight]{tracer1.png}
     \end{center}
   \end{frame}
   \subsection{BFECC}
@@ -115,4 +115,42 @@
   
   \subsection{L'obstacle qui bouge}
   
+\section{Résultats de la simulation}
+ 
+ \subsection{La propulsion}
+ 		
+ 	\begin{frame}
+ 		\frametitle{L'effet de l'amplitude d'oscillation}
+ 			On fait varier l'amplitude d'oscillation
+ 			\centering \includegraphics[height= 0.6 \textheight]{9courbes.png}\\
+ 			Travail de la force de traînée pour une amplitude entre 0,01\degre et 0,09\degre à une fréquence de 10 Hz.
+ 	\end{frame}
+ 	
+ 	\begin{frame}
+ 		\frametitle{L'effet de l'amplitude d'oscillation}
+ 		Sur une plus grande plage d'amplitudes, la traînée devient motrice
+ 		\centering \includegraphics[width= 0.8 \linewidth]{bcp_points.png}\\
+ 		Travail de la traînée au bout de 2000 itérations
+ 	\end{frame}
+  
+  	\begin{frame}
+ 		\frametitle{Interpolation}
+ 		On remarque que pour $ \theta_0 < 0,01$, $W_t \propto \theta_0^{-1}$
+ 		\centering \includegraphics[width= 0.8 \linewidth]{9_courbes_extraites.png}\\
+ 		Régression linéaire de $W_t^{-1}$ en fonction de $\theta_0$
+ 	\end{frame}
+ 	
+ 	\begin{frame}
+ 		\frametitle{L'effet de la fréquence d'oscillation}
+ 			On fait varier la fréquence d'oscillation
+ 			\centering \includegraphics[width= 0.8 \linewidth]{freq0,02.png}\\
+ 			Travail de la force de traînée pour une fréquence entre 10 Hz et 20 Hz à une amplitude de 0,02\degre.
+ 	\end{frame}
+ 	
+ 	\begin{frame}
+ 		\frametitle{Interpolation}
+ 		On interpole la force de traînée moyenne (pentes des droites d'interpolations des droites précédentes)
+ 		\centering \includegraphics[width= 0.8 \linewidth]{modulationfreq.png} \\
+ 		La force de traînée est linéaire en fréquence sur la plage étudiée.
+ 	\end{frame}
 \end{document}
