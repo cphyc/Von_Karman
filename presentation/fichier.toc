@@ -1,9 +1,0 @@
-\beamer@endinputifotherversion {3.20pt}
-\select@language {french}
-\beamer@sectionintoc {1}{Mise en place de la simulation}{2}{0}{1}
-\beamer@subsectionintoc {1}{1}{Point de d\IeC {\'e}part}{2}{0}{1}
-\beamer@subsectionintoc {1}{2}{Incorporation du probl\IeC {\`e}me}{9}{0}{1}
-\beamer@subsectionintoc {1}{3}{BFECC}{13}{0}{1}
-\beamer@subsectionintoc {1}{4}{L'obstacle qui bouge}{17}{0}{1}
-\beamer@sectionintoc {2}{R\IeC {\'e}sultats de la simulation}{18}{0}{2}
-\beamer@subsectionintoc {2}{1}{La propulsion}{18}{0}{2}
