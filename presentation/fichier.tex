@@ -18,8 +18,9 @@
   \end{frame}
 }
 
-\renewcommand\O{\mathcal{O}}
+\renewcommand{\O}{\mathcal{O}}
 \newcommand{\vect}[1]{\boldsymbol{#1}}
+\renewcommand{\d}{\textrm{\d}}
 \begin{document}
   \frame{\titlepage}
 
@@ -121,12 +122,13 @@
     \frametitle{Idée naïve}
     On se contente de définir $\O(t) = T_{\vect{v(t)}}\ \O(0)$ avec 
     \begin{itemize}
-      \item $T_\vect{v}$ l'opérateur de translation ;
+      \item $T_{\vect{v}}$ l'opérateur de translation ;
       \item $\vect{v}$ la vitesse de l'obstacle, par exemple $\sin(\omega
         t)\vect{u_y}$.
     \end{itemize}
-    On impose pour $\phi^n$ un champ :
-    \[\forall (x,y)\in\O\quad \phi^n(x,y) = 0\]
+    \bigskip
+   On impose pour $\phi^n$ un champ :
+    \[ \forall (x,y)\in\O \quad \phi^n(x,y) = 0 \]
   \end{frame}
   \begin{frame}
     \frametitle{Deux problèmes}
@@ -151,9 +153,10 @@
     \item $\vect{u}(x,y)$ la vitesse de l'obstacle au point $(x,y)$ ;
     \item $\vect{v}^n$ le champ de vitesse du fluide au temps $n$;
     \end{itemize}
+    \bigskip
     On impose :
-    \[ \forall (x,y) \in \O^n\quad \vect{v}^{n+1} =
-    \vect{u} + (\vect{v}^n - \vect{u})\cdot e^{-\beta \d  t} \]
+    \[ \forall (x,y) \in \O^n \quad \vect{v}^{n+1} = \vect{u} + 
+    (\vect{v}^n - \vect{u}) \cdot e^{-\beta \mathrm{d} t} \]
   \end{frame}
 
   \begin{frame}
