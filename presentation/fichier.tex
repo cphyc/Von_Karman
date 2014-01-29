@@ -2,6 +2,7 @@
 \usepackage[french]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
+\usepackage{multicol}
 \title{Projet de physique Numérique - Allée de Von Karman}
 \subtitle{Simulation python}
 \author[Cadiou Corentin \and Petit Antoine] % (optional, for multiple authors)
@@ -18,6 +19,7 @@
 }
 
 \renewcommand\O{\mathcal{O}}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
 \begin{document}
   \frame{\titlepage}
 
@@ -29,8 +31,8 @@
 
     Schéma d'advection :
     \begin{itemize}
-      \item advection 1/2 lagrangienne -> diffusion (u,v);
-      \item advection 1/2 lagrangienne -> diffusion (T);
+      \item advection 1/2 lagrangienne $\rightarrow$ diffusion (u,v);
+      \item advection 1/2 lagrangienne $\rightarrow$ diffusion (T);
     \end{itemize}
   \end{frame}
   \begin{frame}
@@ -60,7 +62,7 @@
     \[ \forall (x,y) \in \O : u(x,y) = v(x,y) = 0 \]
     On visualisait en regardant le champ de vitesse \dots
     \begin{center}
-      \includegraphics[height=0.6\textheight]{quiver.png}
+      \includegraphics[width=0.6\textwidth]{quiver.png}
     \end{center}
   \end{frame}
   \begin{frame}
@@ -83,19 +85,19 @@
     Idée : l'obstacle impose $\forall (x,y) \in \O: T^n(x,y) = 0$ et on met
     initialement  $\forall (x,y) \not\in \O : T^0 = 1$.
     \begin{center}
-%      \includegraphics[height=0.6\textheight]{tracer1.png}
+      \includegraphics[height=0.6\textheight]{tracer1.png}
     \end{center}
   \end{frame}
   \subsection{BFECC}
   \begin{frame}
     \frametitle{Back and Forth Error Compensation and Correct }
     On effectue les pas suivants pour un champ scalaire $X^n(x,y)$, un
-    champ de vitesse $\vec{v}$ et un opérateur d'advection
-    $A(\vec{v},X)$ :
+    champ de vitesse $\vect{v}$ et un opérateur d'advection
+    $A(\vect{v},X)$ :
     \begin{align}
-      X_1 & = A(\vec{v},X^n) \\
-      X_2 & = A(-\vec{v},X_1) \\
-      X^{n+1} & = A(\vec{v},X - \alpha(X^n - X_2))
+      X_1 & = A(\vect{v},X^n) \\
+      X_2 & = A(-\vect{v},X_1) \\
+      X^{n+1} & = A(\vect{v},X - \alpha(X^n - X_2))
     \end{align}
     Dans la littérature, $\alpha = \frac{1}{2}$.
   \end{frame}
@@ -111,10 +113,57 @@
   \begin{frame}
     \frametitle{Solution : diminuer $\alpha$}
     Si on diminue $\alpha$, la diffusion numérique augmente :
+    \centering \includegraphics[width=1.\textwidth]{comparaison_alpha.png}
   \end{frame}
   
-  \subsection{L'obstacle qui bouge}
-  
+  \subsection{L'obstacle qui oscille}
+  \begin{frame}
+    \frametitle{Idée naïve}
+    On se contente de définir $\O(t) = T_{\vect{v(t)}}\ \O(0)$ avec 
+    \begin{itemize}
+      \item $T_\vect{v}$ l'opérateur de translation ;
+      \item $\vect{v}$ la vitesse de l'obstacle, par exemple $\sin(\omega
+        t)\vect{u_y}$.
+    \end{itemize}
+    On impose pour $\phi^n$ un champ :
+    \[\forall (x,y)\in\O\quad \phi^n(x,y) = 0\]
+  \end{frame}
+  \begin{frame}
+    \frametitle{Deux problèmes}
+    Discontinuités de la force de trainée.
+    \begin{center}
+      \includegraphics[height=0.7\textheight]{penalisation.png}
+    \end{center}
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Deux problèmes}
+    ``Absorption'' des vecteurs par l'obstacle.
+    \begin{center}
+      \includegraphics[height=0.7\textheight]{absorption.png}
+    \end{center}
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Pénalisation}
+    \begin{itemize}
+    \item $\O^n$ l'obstacle à l'instant $n$ ;
+    \item $\vect{u}(x,y)$ la vitesse de l'obstacle au point $(x,y)$ ;
+    \item $\vect{v}^n$ le champ de vitesse du fluide au temps $n$;
+    \end{itemize}
+    On impose :
+    \[ \forall (x,y) \in \O^n\quad \vect{v}^{n+1} =
+    \vect{u} + (\vect{v}^n - \vect{u})\cdot e^{-\beta \d  t} \]
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Pénalisation}
+    \begin{center}
+      \includegraphics[width=0.33\textwidth]{penalisation_10.png}
+      \includegraphics[width=0.33\textwidth]{penalisation_100.png}
+      \includegraphics[width=0.33\textwidth]{penalisation_1000.png}
+    \end{center}
+  \end{frame}
 \section{Résultats de la simulation}
 
  \subsection{L'allée de Von Karman}
