@@ -17,7 +17,7 @@
     \tableofcontents[currentsubsection]
   \end{frame}
 }
-
+\renewcommand{\d}{\mathrm{d}}
 \renewcommand\O{\mathcal{O}}
 \newcommand{\vect}[1]{\boldsymbol{#1}}
 \begin{document}
@@ -126,8 +126,9 @@
         t)\vect{u_y}$.
     \end{itemize}
     On impose pour $\phi^n$ un champ :
-    \[\forall (x,y)\in\O\quad \phi^n(x,y) = 0\]
-  \end{frame}
+    \[ \forall (x,y)\in\O\quad \phi^n(x,y) = 0\]
+	  \end{frame}
+	  
   \begin{frame}
     \frametitle{Deux problèmes}
     Discontinuités de la force de trainée.
@@ -164,6 +165,41 @@
       \includegraphics[width=0.33\textwidth]{penalisation_1000.png}
     \end{center}
   \end{frame}
+  
+\section{Le schéma}
+
+	\subsection{L'advection}
+		\begin{frame}
+		\frametitle{L'advection}
+		
+			\begin{equation}
+				{u^*}_{i \ j}^{n} = u_{i \ j}^n - {\d t}( u_{ij}^n \frac{u_{i+1 \ j}^n-u_{i-1 \ j}^n}{2 \d x} + v_{i \ j}^{n} \frac{u_{i \ j+1}^n-u_{i \ j-1}^n}{2 \d y}) \\
+			\]
+		\end{frame}		
+		
+	\subsection{La diffusion} 
+		\begin{frame}
+			\frametitle{La diffusion}
+			\[
+			{u^{**}}_{i j}^n=	{u^*}_{i \ j}^{n} + 
+							\frac{\d t}{\mathrm{Re}} \left(\frac{{u^*}_{i+1 \ j}^n + {u^*}_{i-1 \ j}^n}{{\d x}^2} + \frac{{u^*}_{i \ j+1}^n + {u^*}_{i \ j-1}^n}{{\d y}^2} - \frac{{u^*}_{i \ j}^{n}}{2({\d x}^2 + {\d y}^2)} \right)
+			\label{Laplacien}
+			\]
+		\end{frame}	
+		
+	\subsection{La projection}
+		\begin{frame}
+			\frametitle{La projection}
+			À cette étape, $\overrightarrow{u^{**}}$ vérifie seulement l'équation partielle
+		\[ \partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} =  \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u} \],
+		c'est-à-dire sans le gradient de la pression, en conséquence, $\overrightarrow{u}$ n'est pas de divergence nulle :
+		\begin{align*}
+			\nablaf \cdot \overrightarrow{u^{**}} 	& = \nablaf \cdot \overrightarrow{u}	& + &\nablaf \cdot ( [\mathrm{Schéma \ d'advection}] + [\mathrm{Schéma \ de \ difffusion}])\\
+													& = 0 								&+ & (\nablaf \cdot \nablaf) \phi & &\\
+													& = \Delta \phi & &\\
+		\end{align*}
+		\end{frame}			 
+  
 \section{Résultats de la simulation}
 
  \subsection{L'allée de Von Karman}
