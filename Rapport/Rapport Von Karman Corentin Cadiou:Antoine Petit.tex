@@ -11,6 +11,12 @@ Cours de physique numérique}
 
 \tableofcontents
 
+\section*{Introduction}
+
+	Le passage entre l'écoulement laminaire et la turbulence se fait par des régimes instables ainsi que périodique comme l'allée de Von Karman dans le cas d'un obstacle placé dans un écoulement.
+	Ce phénomène qui intervient autant dans les nuages (au voisinage d'une île) que lors du déplacement d'être aquatiques se prête bien à une simulation numérique car l'équation le dirigeant, celle de Navier-Stokes se prête à l'intégration numérique.
+	Nous avons, dans le cadre de ce projet, modélisé ce phénomène puis appliqué à un cas particulier, celui d'un objet nageur. Dans ce cas, on observe que les tourbillons induits par l'obstacle peuvent s'inverser, propulsant l'obstacle plutôt que de le freiner.
+
 \section{L'allée de Von Karman}
 	
 	Le régime de l'écoulement d'un fluide autour d'un obstacle diffère en fonction du nombre de Reynolds associé au fluide et à l'obstacle : à faible Reynolds, l'écoulement est laminaire, à fort nombre de Reynolds l'écoulement est turbulent. Dans le cadre de cette étude, on s'intéresse à un régime intermédiaire, celui de l'allée Von Karman. Dans ce régime, deux tourbillons se forment derr!ère l'obstacle, une perturbation détache l'un des deux, ce qui crée une dépression derrière l'obstacle donnant une vitesse vetricale au second. Le secon tourbillon est à son tour entrainé par le fluide par advection et ainsi de suite.
@@ -150,11 +156,18 @@ Cours de physique numérique}
 			X^{n+1}&	= A(\overrightarrow{v},X^n-\alpha(X^n-X_2))
 		\end{align*}	
 		
+		\begin{figure}[htbp]
+		\begin{center}
+			\includegraphics[width=0.7 \textwidth]{explain_BFECC.png}
+			\caption{L'idée de la méthode \emph{BFECC}, l'erreur $e$ est retrancher ce qui fait passer le schéma à l'ordre 2 \cite{Advect}}
+		\end{center}
+		\end{figure}				
+		
 		La méthode est du deuxième ordre si $\alpha = \frac{1}{2} $ car l'erreur induite par l'advection d'ordre 1 est compensée par le terme ajouté dans la troisième advection.
 		
-		Cette méthode est très efficace comme on peut le constater sur les figures \ref{BFECC/No}, on remarque que l'on gagne en précision sur la définition des tourbillons, cependant cette méthode a plusieurs défauts. Pour commencer nous avons eu des problèmes d'instabilité lors de sa mise en place car les conditions aux limites du colorant entrainait une croissance exponentielle de la concentration à la frontière du domaine \ref{instabilite}.
+		Cette méthode est très efficace comme on peut le constater sur les figures \ref{Comparaison}, on remarque que l'on gagne en précision sur la définition des tourbillons, cependant cette méthode a plusieurs défauts. Pour commencer nous avons eu des problèmes d'instabilité lors de sa mise en place car les conditions aux limites du colorant entrainait une croissance exponentielle de la concentration à la frontière du domaine \ref{instabilite}.
 		
-		\begin{figure}
+		\begin{figure}[htbp]
 			\begin{center}
 			\includegraphics[width=0.7 \textwidth]{instabilite.png}
 			\caption{Maximum de la concentration du colorant en fonction du nombre d'itérations}
@@ -163,6 +176,17 @@ Cours de physique numérique}
 		\end{figure}
 		
 		Un autre désavantage de la \emph{BFECC} dans sa version d'ordre 2 est l'apparition d'un comportement dispersif. Le schéma présente alors plus d'inconvénients que d'avantages : en effet les tourbillons se désagrègent plutôt que d'être advecté. La solution que nous avons choisie est d'utiliser $\alpha < 0,5$, par exemple $\alpha = 0,25$. En effet avec un coefficient plus faible on réduit l'erreur tout en maintenant un schéma diffusif qui évite la dispersion.
+		
+		\begin{figure}[htbp]
+		\begin{center}
+			\includegraphics[width=0.8 \textwidth]{BFECC.png}
+			\includegraphics[width=0.8 \textwidth]{NO-BFECC.png}
+			\caption{Deux simulations aux même temps avec et sans \emph{BFECC}. Le colorant dans l'obstacle est dû à une erreur de code fixée ensuite}
+			\label{Comparaison}
+		\end{center}
+		\end{figure}
+		
+		Sur la figure \ref{Comparaison}, on voit à la fois les avantages et inconvénients de la méthode \emph{BFECC}, si cette dernière offre une plus grande précision, la présence d'artefacts dispersif est fort gênante. 
 	
 	\subsection{La pénalisation}
 
@@ -175,6 +199,13 @@ Cours de physique numérique}
 		\end{equation}
 		
 		La vitesse décroit donc exponentiellement dans l'obstacle avec une constante de temps $\tau= \alpha^{-1}$. Le cas $u(x\in \mathcal{O}bs)=u_{obs}$ correspond au cas limite $\alpha = +\infty$.
+		
+		\begin{figure}[htbp]
+		\begin{center}
+			\includegraphics[width=0.7 \textwidth]{drag_degueu.png}
+			\caption{La force de traînée sans pénalistation de la vitesse dans l'obstacle.}
+		\end{center}
+		\end{figure}
 
 
 \section{Le code}
@@ -182,7 +213,7 @@ Cours de physique numérique}
 	\subsection{Les options}
 		
 		Elles permettent de donner les caractéristiques de la simulation que l'on souhaite effectuer :\\
-			\begin{table}
+			\begin{table}[htbp]
 
 			\begin{tabular}{|l | p{7cm}| l |}
 				\hline
@@ -191,38 +222,38 @@ Cours de physique numérique}
 				\hline
 				\-\-hash & Utilise une table de hashage & \\
 				\hline
-				\-\-BFECC & Utiliser la méthode BFECC & Booléen\\
+				- -BFECC & Utiliser la méthode \emph{BFECC} & Booléen\\
 				\hline
-				\-\-tracer & Visualiser par injections de traceurs & Par défaut 10\\
+				- -tracer & Visualiser par injections de traceurs & Par défaut 10\\
 				\hline
-				\-\-behind & Obstacle absorbant le colorant & \\
+				- -behind & Obstacle absorbant le colorant & \\
 				\hline
-				\-\-Re & Nombre de Reynolds &  Par défaut 1e4\\
+				- -Re & Nombre de Reynolds &  Par défaut 1e4\\
 				\hline
-				\-\-nx, \-\-ny & Taille de la grille &  Par défaut 150, 80\\
+				- -nx, - -ny & Taille de la grille &  Par défaut 150, 80\\
 				\hline
-				\-\-ox & Position de l'obstacle (à gauche) &\\
+				- -ox & Position de l'obstacle (à gauche) &\\
 				\hline
-				\-\-parallel & Utiliser le calcul parallèle pour le plot& Par défaut False\\
+				- -parallel & Utiliser le calcul parallèle pour le plot& Par défaut False\\
 				\hline
-				\-\-max parallel & Utiliser le calcul parallèle pour le plot & \\
+				- -max parallel & Utiliser le calcul parallèle pour le plot & \\
 				\hline
-				\-\-speed & Vitesse du fluide & Par défaut 1 \\
+				- -speed & Vitesse du fluide & Par défaut 1 \\
 				\hline
-				\-\-sinus & On anime l'objet d'un mouvement sinusoïdal vertical & Par défaut freq=0 amp=0\\
+				- -sinus & On anime l'objet d'un mouvement sinusoïdal vertical & Par défaut freq=0 amp=0\\
 				\hline
-				\-\-rect & L'obstacle est un rectangle & Par défaut (width,height) = (10,10)\\
+				- -rect & L'obstacle est un rectangle & Par défaut (width,height) = (10,10)\\
 				\hline
-				\-\-circle & L'obstacle est un cercle & Écrase l'option rectangle\\
+				- -circle & L'obstacle est un cercle & Écrase l'option rectangle\\
 				\hline
-				\-\-movie & La sortie donne la série d'images  & \\
+				- -movie & La sortie donne la série d'images  & \\
 				\hline
-				\-\-alpha & Gère le coefficient de pénalisation & Par défaut 10 000\\
+				- -alpha & Gère le coefficient de pénalisation & Par défaut 10 000\\
 				\hline
-				\-\-niter & Nombre d'itérations de la simulation & Par défaut 10 000\\
+				- -niter & Nombre d'itérations de la simulation & Par défaut 10 000\\
 				\hline
 			\end{tabular}
-						
+			\caption{Les différentes options de la simulation}	
 			\end{table}
 			
 	\subsection{Le calcul du Drag}
@@ -409,15 +440,58 @@ donc plutôt utilisé l'option ``parallèle''.
 	\subsection{L'allée de Von Karman}
 	
 		On observe bien l'instabilité, tant pour un obstacle rectangulaire que pour un obstacle circulaire. Bien que l'apparition de l'allée soit plus longue dans le cas circulaire car l'obstacle est mieux profilé. Il faut prendre garde à prendre un espace d'étude suffisamment grand pour éviter que l'allée ne sorte par un des côtés car ensuite elle y reste bloquée.
+		
+		\begin{figure}[htbp]\begin{center}
+			\includegraphics[width=0.8 \textwidth]{VK_pas_mal.png}
+			\caption{Un exemple de résultat pour le modèle étudié}
+			\label{VK}
+		\end{center}\end{figure}	
+		
 	
 	\subsection{La force de trainée, application à l'obstacle oscillant}
 	
-		Grâce à la méthode de pénalisation, on obtient une courbe régulière pour la traînée. Dans le cas d'un obstacle oscillant, pour une certaine gamme de fréquences et d'amplitudes, on observe que la trainée peut devenir négative, nous avons donc calculé $W_t= \int F_t U_0\d t$, le travail dans le référentiel du fluide de la force de traînée.
-
-	
-	
-	
+		Grâce à la méthode de pénalisation, on obtient une courbe
+        régulière pour la traînée. Dans le cas d'un obstacle
+        oscillant, pour une certaine gamme de fréquences et
+        d'amplitudes, on observe que la trainée peut devenir négative,
+        nous avons donc calculé $W_t= \int F_t U_0\d t$, le travail
+        dans le référentiel du fluide de la force de traînée. Dans
+        certaines gammes d'amplitudes et de fréquences, le travail est
+        moteur \ref{Wamp}. De plus, pour $ \theta_0 \leq 0,09$, si on
+        trace $W_t^{-1}$ le graphe est une droite
+        \ref{regressinvers}. On en déduit que pour les petites
+        amplitudes, $W_t \propto \theta_0^{-1}$ et est positif, ce qui
+        est cohérent . 
 		
+		\begin{figure}[htbp]\begin{center}
+			\includegraphics[width=0.9 \textwidth]{9courbes.png}
+			\caption{$W_t$ en fonction de l'amplitude pour différentes
+              fréquences (les amplitudes vont de 0.001\degre à 0.009\degre par
+              ordre croissant)}
+			\label{multiW}
+		\end{center}\end{figure}				
+		
+		\begin{figure}[htbp]\begin{center}
+			\includegraphics[width=0.9 \textwidth]{bcp_points.png}
+			\caption{$W_t^{-1}$ au bout de 2000 itérations à la fréquence en fonction de l'amplitude}
+			\label{Wamp}
+		\end{center}\end{figure}
+		
+		\begin{figure}[htbp]\begin{center}
+			\includegraphics[width=0.7 \textwidth]{9_courbes_extraites.png}
+			\caption{Régression linéaire de l'inverse du travail en fonction de l'amplitude dans les mêmes conditions que dans \ref{Wamp}}
+			\label{regressinvers}
+		\end{center}\end{figure}
+		
+		
+\section*{Conclusion}
+	Notre modèle rend effectivement compte de la propulsion chez les têtards par exemple, en effet, l'obstacle "nageur" peut remonter le courant si il oscille avec une amplitude suffisante ou une fréquence suffisament élevée, on re trouve également des résultats qui semblent cohérents comme l'inverse proportionnalité du travail et de l'amplitude pour les petites perturbations.
+	Le schéma est consistant et le code est en partie optimisé, ce qui a facilité le calcul de nombreuses simulations.
+	Nous aurions aimé faire une étude plus systématique et plus théorique de la force de traînée (évolution en fonction de Re, de la fréquence d'oscillation, taille de l'obstacle,...) et également travailler sur des simulations plus grandes (et donc impliquant un plus grand temps de calcul afin d'essayer de retrouver l'expression de la fréquence d'émission des tourbillons.
+	
+	
+	
+	\pagebreak
 \bibliographystyle{plain}
 \bibliography{Biblio.bib}
 	
