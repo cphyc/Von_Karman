@@ -5,7 +5,7 @@
 \usepackage{multicol}
 \title{Projet de physique Numérique - Allée de Von Karman}
 \subtitle{Simulation python}
-\author[Cadiou Corentin \and Petit Antoine] % (optional, for multiple authors)
+\author[Cadiou Corentin \and Petit Antoine]
 {Cadiou Corentin \and Petit Antoine}
 \date{Janvier 2014}
 \subject{Physique numérique}
@@ -20,6 +20,8 @@
 
 \renewcommand{\O}{\mathcal{O}}
 \newcommand{\vect}[1]{\boldsymbol{#1}}
+\renewcommand{\d}{\textrm{d}}
+\newcommand{\nablaf}{\overrightarrow\nabla}
 \begin{document}
   \frame{\titlepage}
 
@@ -169,37 +171,45 @@
   
 \section{Le schéma}
 
-	\subsection{L'advection}
-		\begin{frame}
-		\frametitle{L'advection}
-		
-			\begin{equation}
-				{u^*}_{i \ j}^{n} = u_{i \ j}^n - {\d t}( u_{ij}^n \frac{u_{i+1 \ j}^n-u_{i-1 \ j}^n}{2 \d x} + v_{i \ j}^{n} \frac{u_{i \ j+1}^n-u_{i \ j-1}^n}{2 \d y}) \\
-			\]
-		\end{frame}		
-		
-	\subsection{La diffusion} 
-		\begin{frame}
-			\frametitle{La diffusion}
-			\[
-			{u^{**}}_{i j}^n=	{u^*}_{i \ j}^{n} + 
-							\frac{\d t}{\mathrm{Re}} \left(\frac{{u^*}_{i+1 \ j}^n + {u^*}_{i-1 \ j}^n}{{\d x}^2} + \frac{{u^*}_{i \ j+1}^n + {u^*}_{i \ j-1}^n}{{\d y}^2} - \frac{{u^*}_{i \ j}^{n}}{2({\d x}^2 + {\d y}^2)} \right)
-			\label{Laplacien}
-			\]
-		\end{frame}	
-		
-	\subsection{La projection}
-		\begin{frame}
-			\frametitle{La projection}
-			À cette étape, $\overrightarrow{u^{**}}$ vérifie seulement l'équation partielle
-		\[ \partd{\overrightarrow{u}}{t} + (\overrightarrow{u} \cdot 	\nablaf) \overrightarrow{u} =  \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u} \],
-		c'est-à-dire sans le gradient de la pression, en conséquence, $\overrightarrow{u}$ n'est pas de divergence nulle :
-		\begin{align*}
-			\nablaf \cdot \overrightarrow{u^{**}} 	& = \nablaf \cdot \overrightarrow{u}	& + &\nablaf \cdot ( [\mathrm{Schéma \ d'advection}] + [\mathrm{Schéma \ de \ difffusion}])\\
-													& = 0 								&+ & (\nablaf \cdot \nablaf) \phi & &\\
-													& = \Delta \phi & &\\
-		\end{align*}
-		\end{frame}			 
+\subsection{L'advection}
+\begin{frame}
+  \frametitle{L'advection}
+    Le schéma de l'étape de diffusion pour la composante $u$ :
+  \[{u^*}_{i \ j}^{n} = u_{i \ j}^n - {\d t}\left( u_{ij}^n \frac{u_{i+1
+      \ j}^n-u_{i-1 \ j}^n}{2 \d x} + v_{i \ j}^{n} \frac{u_{i \
+      j+1}^n-u_{i \ j-1}^n}{2 \d y}\right)
+  \]
+  \end{frame}		
+  
+  \subsection{La diffusion} 
+  \begin{frame}
+    \frametitle{La diffusion}
+    Le schéma de l'étape de diffusion pour la composante $u$ : 
+    \begin{align*}
+    {u^{**}}_{i j}^n = {u^*}_{i \ j}^{n} + \frac{\d t}{\mathrm{Re}}
+    \Bigg( & \frac{{u^*}_{i+1 \ j}^n + {u^*}_{i-1 \ j}^n}{{\d x}^2}
+    + \frac{{u^*}_{i \ j+1}^n + \left.{u^*}_{i \ j-1}^n}{{\d y}^2}\\
+    &  -\frac{{u^*}_{i \ j}^{n}}{2({\d x}^2 + {\d y}^2)} \Bigg)
+    \end{align*}
+  \end{frame}	
+  
+  \subsection{La projection}
+  \begin{frame}
+    \frametitle{La projection}
+    À cette étape, $\overrightarrow{u^{**}}$ vérifie seulement l'équation partielle
+    \[ \frac{\partial\overrightarrow{u}}{\partial t} +
+    (\overrightarrow{u} \cdot  \nablaf) \overrightarrow{u} =
+    \frac{1}{\mathrm{Re}} \overrightarrow{\Delta} \overrightarrow{u} \]
+    c'est-à-dire sans le gradient de la pression, en conséquence,
+    $\overrightarrow{u}$ n'est pas de divergence nulle :
+    \begin{align*}
+      \nablaf \cdot \overrightarrow{u^{**}} & = \nablaf \cdot
+      \overrightarrow{u}	& + &\nablaf \cdot ( [\mathrm{Schema 
+        \ advection}] + [\mathrm{Schema \ diffusion}])\\ 
+      & = 0  &+ & (\nablaf \cdot \nablaf) \phi \\ 
+      & = \Delta \phi & & \\
+    \end{align*}
+  \end{frame}	 
   
 \section{Résultats de la simulation}
 
